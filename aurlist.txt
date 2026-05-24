@@ -1,0 +1,6 @@
+claude-code
+github-desktop-bin
+noctalia-shell
+python-pywalfox
+yay
+yay-debug
