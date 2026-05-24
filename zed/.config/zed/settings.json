@@ -1,0 +1,94 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+  "diff_view_style": "unified",
+  "proxy": "",
+  "cli_default_open_behavior": "existing_window",
+  "project_panel": {
+    "dock": "left",
+  },
+  "outline_panel": {
+    "dock": "left",
+  },
+  "collaboration_panel": {
+    "dock": "left",
+  },
+  "disable_ai": false,
+  "buffer_line_height": "standard",
+  "buffer_font_family": ".ZedMono",
+  "git_panel": {
+    "dock": "left",
+    "tree_view": true,
+  },
+  "icon_theme": {
+    "mode": "dark",
+    "light": "VSCode Icons for Zed (Dark)",
+    "dark": "VSCode Icons for Zed (Dark)",
+  },
+  "enable_language_server": true,
+  "agent_servers": {
+    "claude-acp": {
+      "type": "registry",
+      "default_model": "sonnet",
+    },
+  },
+  "ssh_connections": [
+    {
+      "host": "192.168.0.109",
+      "username": "melissa",
+      "args": [],
+      "projects": [
+        {
+          "paths": ["/home/melissa"],
+        },
+      ],
+    },
+  ],
+  "agent": {
+    "dock": "right",
+    "play_sound_when_agent_done": "always",
+    "enable_feedback": false,
+    "single_file_review": true,
+    "inline_assistant_model": {
+      "provider": "google",
+      "model": "gemini-3-pro-preview",
+    },
+    "default_model": {
+      "enable_thinking": true,
+      "provider": "google",
+      "model": "gemini-2.5-flash",
+    },
+    "favorite_models": [],
+    "model_parameters": [],
+  },
+  "session": {
+    "trust_all_worktrees": true,
+  },
+  "vim_mode": true,
+  "ui_font_size": 14.0,
+  "buffer_font_size": 12.0,
+  "theme": {
+    "mode": "dark",
+    "light": "One Light",
+    "dark": "One Dark",
+  },
+  "lsp": {
+    "pyright": {
+      "settings": {
+        "python": {
+          "pythonPath": "/usr/bin/python3",
+          "analysis": {
+            "typeCheckingMode": "off",
+            "reportMissingImports": "warning",
+          },
+        },
+      },
+    },
+  },
+}
