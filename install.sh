@@ -27,13 +27,18 @@ sudo pacman -S --needed --noconfirm - < "$SCRIPT_DIR/pkglist.txt"
 # 4. AUR packages
 yay -S --needed --noconfirm - < "$SCRIPT_DIR/aurlist.txt"
 
-# 5. Symlink dotfiles into $HOME (each non-hidden top-level dir is a stow package)
+# 5. workmux (not in the repos; installed via upstream script)
+if ! command -v workmux &> /dev/null; then
+    curl -fsSL https://raw.githubusercontent.com/raine/workmux/main/scripts/install.sh | bash
+fi
+
+# 6. Symlink dotfiles into $HOME (each non-hidden top-level dir is a stow package)
 cd "$SCRIPT_DIR"
 for pkg in */; do
     stow --target="$HOME" "${pkg%/}"
 done
 
-# 6. Enable system services (skips any not present so a missing unit won't abort)
+# 7. Enable system services (skips any not present so a missing unit won't abort)
 for svc in "${SERVICES[@]}"; do
     if systemctl cat "$svc" &> /dev/null; then
         sudo systemctl enable "$svc"
