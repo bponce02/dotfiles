@@ -1,0 +1,10 @@
+# Noctalia user templates
+# Requires "Enable user theming" ON in Settings > Color Scheme > Templates
+# (settings.json: templates.enableUserTheming = true).
+# Re-rendered automatically on every color-scheme change (e.g. wallpaper change).
+# Docs: https://docs.noctalia.dev/v4/theming/user-templates/
+
+[templates.zed]
+input_path = "~/.config/noctalia/templates/zed.json"
+output_path = "~/.config/zed/themes/noctalia.json"
+post_hook = "notify-send 'Noctalia' 'Zed theme updated' 2>/dev/null || true"

@@ -21,31 +21,31 @@
   {
     "context": "vim_mode == normal",
       "bindings": {
-      "escape j": "editor::ToggleFocus"
+      "ctrl-j": "editor::ToggleFocus"
     }
   },
   {
     "context": "vim_mode == normal",
       "bindings": {
-      "escape e": "project_panel::ToggleFocus"
+      "space e": "project_panel::ToggleFocus"
     }
   },
   {
     "context": "vim_mode == normal",
       "bindings": {
-      "escape t": "terminal_panel::Toggle"
+      "ctrl-/": "terminal_panel::Toggle"
     }
   },
   {
     "context": "vim_mode == normal",
       "bindings": {
-      "escape g": "git_panel::ToggleFocus"
+      "space g g": "git_panel::ToggleFocus"
     }
   },
   {
     "context": "vim_mode == normal",
       "bindings": {
-      "escape enter": "agent::ToggleFocus"
+      "ctrl-enter": "agent::ToggleFocus"
     }
   }
 ]
