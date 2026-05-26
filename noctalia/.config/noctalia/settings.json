@@ -484,10 +484,10 @@
     "network": {
         "bluetoothAutoConnect": true,
         "bluetoothDetailsViewMode": "grid",
-        "bluetoothHideUnnamedDevices": false,
+        "bluetoothHideUnnamedDevices": true,
         "bluetoothRssiPollIntervalMs": 60000,
         "bluetoothRssiPollingEnabled": false,
-        "disableDiscoverability": false,
+        "disableDiscoverability": true,
         "networkPanelView": "wifi",
         "wifiDetailsViewMode": "grid"
     },
@@ -736,7 +736,7 @@
         "useOriginalImages": false,
         "useSolidColor": false,
         "useWallhaven": false,
-        "viewMode": "single",
+        "viewMode": "browse",
         "wallhavenApiKey": "",
         "wallhavenCategories": "111",
         "wallhavenOrder": "desc",

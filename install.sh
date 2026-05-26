@@ -33,9 +33,24 @@ if ! command -v workmux &> /dev/null; then
 fi
 
 # 6. Symlink dotfiles into $HOME (each non-hidden top-level dir is a stow package)
+# stow refuses to overwrite pre-existing real files (a fresh system has default
+# .bashrc, apps create their own config, etc.), which would abort the whole run.
+# So for each package we dry-run first, move any conflicting non-symlink targets
+# into a timestamped backup dir, then stow — the repo's versions win, nothing lost.
 cd "$SCRIPT_DIR"
+BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 for pkg in */; do
-    stow --target="$HOME" "${pkg%/}"
+    pkg="${pkg%/}"
+    while IFS= read -r target; do
+        [ -n "$target" ] || continue
+        [ -e "$HOME/$target" ] || continue   # gone already
+        [ -L "$HOME/$target" ] && continue    # an existing symlink is fine
+        mkdir -p "$BACKUP_DIR/$(dirname "$target")"
+        mv "$HOME/$target" "$BACKUP_DIR/$target"
+        echo "backed up ~/$target -> $BACKUP_DIR/$target"
+    done < <(stow -nv --target="$HOME" "$pkg" 2>&1 \
+        | sed -n 's/.*cannot stow .* over existing target \(.*\) since .*/\1/p')
+    stow --target="$HOME" "$pkg"
 done
 
 # 7. Enable system services (skips any not present so a missing unit won't abort)
