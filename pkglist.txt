@@ -7,6 +7,9 @@ btop
 clapper
 code
 discord
+docker
+docker-buildx
+docker-compose
 efibootmgr
 fastfetch
 firefox

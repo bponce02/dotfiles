@@ -8,6 +8,7 @@ SERVICES=(
     sddm.service          # display manager / login screen
     NetworkManager.service # networking
     bluetooth.service     # bluetooth (bluez)
+    docker.service        # docker daemon
 )
 
 # 1. Prerequisites for building AUR packages (git to clone, base-devel for makepkg)
@@ -59,3 +60,9 @@ for svc in "${SERVICES[@]}"; do
         sudo systemctl enable "$svc"
     fi
 done
+
+# 8. Add the current user to the docker group so docker runs without sudo
+# (takes effect on next login / `newgrp docker`)
+if getent group docker &> /dev/null && ! id -nG "$USER" | grep -qw docker; then
+    sudo usermod -aG docker "$USER"
+fi
