@@ -89,10 +89,10 @@
                 {
                     "clockColor": "none",
                     "customFont": "Noto Music",
-                    "formatHorizontal": "HH:mm ddd, MMM dd",
+                    "formatHorizontal": "h:mm AP ddd, MMM dd",
                     "formatVertical": "HH mm - dd MM",
                     "id": "Clock",
-                    "tooltipFormat": "HH:mm ddd, MMM dd",
+                    "tooltipFormat": "MM/dd/yyyy t",
                     "useCustomFont": false
                 },
                 {

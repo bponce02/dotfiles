@@ -15,10 +15,12 @@ fastfetch
 firefox
 ghostty
 git
+git-delta
 github-cli
 gst-libav
 gst-plugin-pipewire
 iwd
+lazydocker
 lazygit
 libpulse
 linux
@@ -34,11 +36,14 @@ pipewire
 pipewire-alsa
 pipewire-jack
 pipewire-pulse
+power-profiles-daemon
 sddm
+sof-firmware
 stow
 sudo
 tmux
 ttf-liberation
+ufw
 uv
 vim
 wireplumber
