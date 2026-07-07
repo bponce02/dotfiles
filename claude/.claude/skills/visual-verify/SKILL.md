@@ -20,21 +20,24 @@ In order of preference:
    `visual-verify` with exact commands), then look in `tests/e2e`, `e2e/`,
    `playwright.config.*`. A harness with a live-server fixture lets you seed
    data in-process — use it.
-2. **Standalone Playwright script against a dev server**: start the app
-   (`just dev` / `npm run dev` / `manage.py runserver` — check the README or
-   justfile/Makefile), then a short script:
+2. **The bundled `screenshot.py` (next to this file) against a dev server**:
+   start the app (`just dev` / `npm run dev` / `manage.py runserver` — check
+   the README or justfile/Makefile), then:
 
-```python
-from playwright.sync_api import sync_playwright
-
-with sync_playwright() as p:
-    page = p.chromium.launch().new_page(viewport={"width": 390, "height": 844})
-    page.goto("http://localhost:8000/path/")
-    page.wait_for_timeout(500)
-    page.screenshot(path="shots/mobile.png")
+```bash
+python <skill dir>/screenshot.py http://localhost:8000/path/ \
+    --out /tmp/shots --viewports mobile,desktop --themes both \
+    --wait ".some-js-rendered-thing"
 ```
 
-3. **Static HTML/artifacts**: open the file directly (`page.goto("file://…")`).
+   Presets: mobile/tablet/desktop/desktop-xl or `WIDTHxHEIGHT`. `--themes both`
+   emulates prefers-color-scheme; for apps whose theme toggle reads
+   localStorage instead, use `--eval "localStorage.setItem('theme','dark')" --reload`.
+   `--full-page` captures beyond the fold. Also importable:
+   `from screenshot import shoot`. Run it with whichever Python has
+   playwright installed (often the project's venv).
+
+3. **Static HTML/artifacts**: `screenshot.py file:///abs/path.html` works too.
 
 If Chromium isn't installed: `playwright install chromium` (or the project's
 documented equivalent).
