@@ -49,9 +49,13 @@ for pkg in */; do
         mkdir -p "$BACKUP_DIR/$(dirname "$target")"
         mv "$HOME/$target" "$BACKUP_DIR/$target"
         echo "backed up ~/$target -> $BACKUP_DIR/$target"
-    done < <(stow -nv --target="$HOME" "$pkg" 2>&1 \
+    done < <(stow -nv --no-folding --target="$HOME" "$pkg" 2>&1 \
         | sed -n 's/.*cannot stow .* over existing target \(.*\) since .*/\1/p')
-    stow --target="$HOME" "$pkg"
+    # --no-folding forces per-file symlinks instead of folding a whole dir into a
+    # single link. Critical for the claude package: without it, a fresh machine
+    # (no ~/.claude yet) would get all of ~/.claude symlinked into the repo,
+    # dragging Claude Code's runtime state (history, sessions, creds) in with it.
+    stow --no-folding --target="$HOME" "$pkg"
 done
 
 # 7. Enable system services (skips any not present so a missing unit won't abort)
