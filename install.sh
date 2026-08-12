@@ -92,9 +92,3 @@ done
 if getent group docker &> /dev/null && ! id -nG "$USER" | grep -qw docker; then
     sudo usermod -aG docker "$USER"
 fi
-
-# 11. GitHub auth (interactive browser OAuth; also acts as the git credential
-# helper for HTTPS remotes, so no SSH keys to generate or upload)
-if ! gh auth status &> /dev/null; then
-    gh auth login --hostname github.com --git-protocol https --web
-fi
