@@ -44,17 +44,7 @@ if command -v claude &> /dev/null && ! claude plugin list 2>/dev/null | grep -q 
     claude plugin install plannotator@plannotator || true
 fi
 
-# 7. pi coding agent (npm global). npm is pulled in explicitly here because it
-# only exists as a *dependency* on the source machine, so sync.sh's explicit-
-# package lists never capture it. --prefix keeps the install under ~/.local
-# (bin already on PATH via .bashrc) so it needs no sudo and survives pacman
-# reinstalls of npm itself.
-if ! command -v pi &> /dev/null; then
-    sudo pacman -S --needed --noconfirm npm
-    npm install -g --prefix "$HOME/.local" @earendil-works/pi-coding-agent
-fi
-
-# 8. Symlink dotfiles into $HOME (each non-hidden top-level dir is a stow package)
+# 7. Symlink dotfiles into $HOME (each non-hidden top-level dir is a stow package)
 # stow refuses to overwrite pre-existing real files (a fresh system has default
 # .bashrc, apps create their own config, etc.), which would abort the whole run.
 # So for each package we dry-run first, move any conflicting non-symlink targets
@@ -79,14 +69,14 @@ for pkg in */; do
     stow --no-folding --target="$HOME" "$pkg"
 done
 
-# 9. Enable system services (skips any not present so a missing unit won't abort)
+# 8. Enable system services (skips any not present so a missing unit won't abort)
 for svc in "${SERVICES[@]}"; do
     if systemctl cat "$svc" &> /dev/null; then
         sudo systemctl enable "$svc"
     fi
 done
 
-# 10. Add the current user to the docker group so docker runs without sudo
+# 9. Add the current user to the docker group so docker runs without sudo
 # (takes effect on next login / `newgrp docker`)
 if getent group docker &> /dev/null && ! id -nG "$USER" | grep -qw docker; then
     sudo usermod -aG docker "$USER"

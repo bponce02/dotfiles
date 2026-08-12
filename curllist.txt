@@ -2,3 +2,4 @@
 # Format: <command> <install-script-url> — installed only when <command> is missing.
 workmux https://raw.githubusercontent.com/raine/workmux/main/scripts/install.sh
 plannotator https://plannotator.ai/install.sh
+pi https://pi.dev/install.sh
