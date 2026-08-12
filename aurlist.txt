@@ -1,5 +1,4 @@
 arduino-ide-bin
-bambu-studio
 claude-code
 github-desktop-bin
 google-chrome
