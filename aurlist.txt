@@ -1,6 +1,9 @@
+arduino-ide-bin
+bambu-studio
 claude-code
 github-desktop-bin
+google-chrome
+mozillavpn
 noctalia-shell
 python-pywalfox
 yay
-yay-debug
