@@ -616,6 +616,10 @@ binds {
     Print { screenshot; }
     Ctrl+Print { screenshot-screen; }
     Alt+Print { screenshot-window; }
+    Super+Shift+S { screenshot; }
+    // Select a region, then annotate it (arrows/text/blur) in satty.
+    // Saves to ~/Pictures/Screenshots and copies the result to the clipboard.
+    Super+Shift+A hotkey-overlay-title="Screenshot + annotate: satty" { spawn-sh r#"grim -g "$(slurp)" - | satty --filename - --output-filename "$HOME/Pictures/Screenshots/Screenshot from $(date '+%Y-%m-%d %H-%M-%S').png" --early-exit --copy-command wl-copy"#; }
 
     // Applications such as remote-desktop clients and software KVM switches may
     // request that niri stops processing the keyboard shortcuts defined here
