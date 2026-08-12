@@ -28,18 +28,17 @@ sudo pacman -S --needed --noconfirm - < "$SCRIPT_DIR/pkglist.txt"
 # 4. AUR packages
 yay -S --needed --noconfirm - < "$SCRIPT_DIR/aurlist.txt"
 
-# 5. workmux (not in the repos; installed via upstream script)
-if ! command -v workmux &> /dev/null; then
-    curl -fsSL https://raw.githubusercontent.com/raine/workmux/main/scripts/install.sh | bash
-fi
+# 5. Tools that ship their own curl-pipe installers (see curllist.txt)
+# (fd 3 so an installer that reads stdin can't swallow the rest of the list)
+while read -r -u 3 cmd url; do
+    case "$cmd" in ''|\#*) continue ;; esac
+    if ! command -v "$cmd" &> /dev/null; then
+        curl -fsSL "$url" | bash
+    fi
+done 3< "$SCRIPT_DIR/curllist.txt"
 
-# 6. plannotator (plan review UI for coding agents; not packaged for Arch).
-# The installer drops the binary in ~/.local/bin and wires up hooks/skills for
-# whatever agents it detects. The Claude Code *plugin* half is a separate
-# marketplace install, done below once the claude CLI is available.
-if ! command -v plannotator &> /dev/null; then
-    curl -fsSL https://plannotator.ai/install.sh | bash
-fi
+# 6. plannotator's Claude Code plugin — the binary comes from curllist.txt, but
+# the plugin half is a separate marketplace install once the claude CLI exists
 if command -v claude &> /dev/null && ! claude plugin list 2>/dev/null | grep -q plannotator; then
     claude plugin marketplace add backnotprop/plannotator || true
     claude plugin install plannotator@plannotator || true
