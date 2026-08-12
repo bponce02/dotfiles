@@ -1,0 +1,14 @@
+// Zed tasks — see https://zed.dev/docs/tasks
+[
+  {
+    // Stage everything, commit with a message typed at the prompt, push.
+    // `read` is what supplies the prompt (Zed tasks have no input mechanism of
+    // their own); it runs in bash, the login shell. The `&&` chain stops before
+    // pushing if there is nothing to commit or a hook rejects the commit.
+    "label": "git: stage, commit, push",
+    "command": "read -p 'commit message: ' m && git add -A && git commit -m \"$m\" && git push",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  }
+]

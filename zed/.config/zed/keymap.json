@@ -10,12 +10,14 @@
     "context": "Workspace",
     "bindings": {
       // "shift shift": "file_finder::Toggle"
+      "ctrl-alt-p": ["task::Spawn", { "task_name": "git: stage, commit, push" }]
     },
   },
   {
     "context": "Editor && vim_mode == insert",
     "bindings": {
       // "j k": "vim::NormalBefore"
+      "ctrl-s": "workspace::Save"
     },
   },
   {
@@ -45,7 +47,25 @@
   {
     "context": "vim_mode == normal",
       "bindings": {
+      "space g p": ["task::Spawn", { "task_name": "git: stage, commit, push" }]
+    }
+  },
+  {
+    "context": "vim_mode == normal",
+      "bindings": {
       "ctrl-enter": "agent::ToggleFocus"
+    }
+  },
+  {
+    "context": "!AcpThread > Editor && mode == full",
+    "bindings": {
+      "ctrl-shift-enter": "assistant::InlineAssist"
+    }
+  },
+  {
+    "context": "!AcpThread > Editor && mode == full",
+    "unbind": {
+      "ctrl-enter": "assistant::InlineAssist"
     }
   }
 ]

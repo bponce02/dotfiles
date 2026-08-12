@@ -7,7 +7,14 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
-  "diff_view_style": "unified",
+  "buffer_font_weight": 400.0,
+  "features": {
+    "edit_prediction_provider": "zed",
+  },
+  "edit_predictions": {
+    "mode": "eager",
+  },
+  "diff_view_style": "split",
   "proxy": "",
   "cli_default_open_behavior": "existing_window",
   "project_panel": {
@@ -32,8 +39,32 @@
     "dark": "VSCode Icons for Zed (Dark)",
   },
   "enable_language_server": true,
+  // Helm chart templates are Go templates, not YAML — yaml-language-server
+  // red-squiggles every {{ }} line. Hand them to the Helm extension instead.
+  "auto_install_extensions": {
+    "helm": true,
+  },
+  "file_types": {
+    "Helm": [
+      "**/templates/**/*.yaml",
+      "**/templates/**/*.yml",
+      "**/templates/**/*.tpl",
+      "**/*.gotmpl",
+    ],
+  },
   "agent_servers": {
     "claude-acp": {
+      "favorite_config_option_values": {
+        "fast": [
+          "off"
+        ]
+      },
+      "default_config_options": {
+        "fast": "off",
+        "mode": "auto",
+        "effort": "high",
+        "model": "opus[1m]"
+      },
       "type": "registry",
       "default_model": "sonnet",
     },
@@ -45,10 +76,24 @@
       "args": [],
       "projects": [
         {
-          "paths": ["/home/melissa"],
-        },
-      ],
+          "paths": [
+            "/home/melissa"
+          ]
+        }
+      ]
     },
+    {
+      "host": "10.250.0.5",
+      "username": "coreadmin",
+      "args": [],
+      "projects": [
+        {
+          "paths": [
+            "/home/coreadmin"
+          ]
+        }
+      ]
+    }
   ],
   "agent": {
     "dock": "right",
@@ -75,8 +120,8 @@
   "buffer_font_size": 12.0,
   "theme": {
     "mode": "dark",
-    "light": "Noctalia Light",
-    "dark": "Noctalia Dark",
+    "light": "One Dark",
+    "dark": "VSCode Dark Modern",
   },
   "lsp": {
     "pyright": {
