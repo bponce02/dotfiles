@@ -1,4 +1,4 @@
-theme = noctalia
+theme = vscode-dark-modern
 #background-opacity = 0.85
 window-decoration = false
 window-padding-x = 10
