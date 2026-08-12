@@ -11,8 +11,9 @@ SERVICES=(
     docker.service        # docker daemon
 )
 
-# 1. Prerequisites for building AUR packages (git to clone, base-devel for makepkg)
-sudo pacman -S --needed --noconfirm git base-devel
+# 1. Sync package databases + full upgrade first (never install onto a stale
+# system — partial upgrades break Arch), then AUR build prerequisites
+sudo pacman -Syu --needed --noconfirm git base-devel
 
 # 2. Bootstrap yay if it isn't already installed
 if ! command -v yay &> /dev/null; then
