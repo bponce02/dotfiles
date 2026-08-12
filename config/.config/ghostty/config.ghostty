@@ -1,5 +1,8 @@
-theme = vscode-dark-modern
-#background-opacity = 0.85
+theme = noctalia
+background-opacity = 0.85
+background-blur-radius = 20
+# Keep full-screen terminal apps (such as pi, tmux, and Neovim) transparent too.
+background-opacity-cells = true
 window-decoration = false
 window-padding-x = 10
 window-padding-y = 10
@@ -17,6 +20,3 @@ keybind = ctrl+6=goto_tab:6
 keybind = ctrl+7=goto_tab:7
 keybind = ctrl+8=goto_tab:8
 keybind = ctrl+9=goto_tab:9
-
-
-

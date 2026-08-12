@@ -120,8 +120,8 @@
   "buffer_font_size": 12.0,
   "theme": {
     "mode": "dark",
-    "light": "One Dark",
-    "dark": "VSCode Dark Modern",
+    "light": "Noctalia Light",
+    "dark": "Noctalia Dark",
   },
   "lsp": {
     "pyright": {

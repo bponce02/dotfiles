@@ -1,0 +1,122 @@
+# Noctalia v5 configuration, migrated by hand from the legacy v4 settings.json.
+# v5 does not read or automatically migrate the old JSON/QML configuration.
+
+[theme]
+mode = "dark"
+source = "wallpaper"
+wallpaper_scheme = "m3-content"
+
+[theme.templates]
+enable_builtin_templates = true
+enable_community_templates = true
+builtin_ids = ["btop", "ghostty", "gtk3", "gtk4", "niri", "qt"]
+community_ids = ["discord", "pywalfox", "steam", "zed"]
+
+[shell]
+font_family = "sans-serif"
+corner_radius_scale = 1.0
+telemetry_enabled = false
+clipboard_enabled = false
+
+[shell.animation]
+enabled = true
+speed = 1.5
+
+[shell.launcher]
+app_grid = false
+categories = true
+show_icons = true
+sort_by_usage = true
+
+[shell.panel]
+control_center_placement = "attached"
+wallpaper_placement = "attached"
+session_placement = "attached"
+launcher_placement = "floating"
+launcher_position = "center"
+transparency_mode = "glass"
+
+[bar]
+order = ["default"]
+
+[bar.default]
+position = "top"
+enabled = true
+auto_hide = false
+reserve_space = true
+background_opacity = 0.93
+thickness = 34
+radius = 12
+concave_edge_corners = false
+margin_ends = 4
+margin_edge = 4
+padding = 8
+widget_spacing = 6
+scale = 1.0
+capsule = true
+capsule_opacity = 1.0
+start = ["clock", "weather", "cpu", "ram", "media"]
+center = ["audio_visualizer"]
+end = ["workspaces", "tray", "notifications", "battery", "volume", "brightness", "bluetooth", "network", "control-center"]
+
+[widget.clock]
+type = "clock"
+format = "{:%I:%M %p %a, %b %d}"
+
+[widget.cpu]
+type = "sysmon"
+stat = "cpu_usage"
+
+[widget.ram]
+type = "sysmon"
+stat = "ram_pct"
+
+[widget.media]
+type = "media"
+max_length = 145.0
+
+# v4's weather, color-scheme, and VPN plugins are native in v5. These two
+# still have direct v5 equivalents in the community catalog.
+[plugins]
+enabled = ["cleboost/zed-provider", "kenn/keybind-cheatsheet"]
+
+[weather]
+enabled = true
+unit = "imperial"
+effects = true
+
+[location]
+auto_locate = false
+address = "Jefferson"
+
+[notification]
+enable_daemon = true
+position = "top_right"
+background_opacity = 1.0
+
+[osd]
+enabled = true
+position = "top_right"
+position_vertical = "top_right"
+background_opacity = 1.0
+
+[desktop_widgets]
+enabled = false
+
+[dock]
+enabled = false
+position = "bottom"
+auto_hide = true
+
+[wallpaper]
+enabled = true
+directory = "/home/bponce/Pictures/Wallpapers"
+fill_mode = "crop"
+transition = ["fade", "disc", "stripes", "wipe", "honeycomb"]
+transition_duration = 1500.0
+transition_on_startup = false
+
+[wallpaper.automation]
+enabled = false
+interval_seconds = 300
+order = "random"

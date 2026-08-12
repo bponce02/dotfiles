@@ -3,6 +3,5 @@ claude-code
 github-desktop-bin
 google-chrome
 mozillavpn
-noctalia-shell
 python-pywalfox
 yay

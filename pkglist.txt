@@ -37,6 +37,7 @@ nautilus
 neovim
 networkmanager
 niri
+noctalia
 noto-fonts
 noto-fonts-emoji
 openai-codex

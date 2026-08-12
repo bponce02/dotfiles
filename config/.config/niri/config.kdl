@@ -329,8 +329,29 @@ window-rule {
 }
 
 // Enable background blur for Ghostty.
-// Note: blur is only visible if Ghostty has a semi-transparent background
-// (set `background-opacity = 0.85` or similar in the Ghostty config).
+// Ghostty is semi-transparent, so this blurs the wallpaper behind it.
+blur {
+    passes 3
+    offset 3.0
+    noise 0.02
+    saturation 1.5
+}
+
+window-rule {
+    match app-id=r#"^com\.mitchellh\.ghostty$"#
+
+    background-effect {
+        blur true
+    }
+}
+
+// Draw the focus ring *around* Ghostty instead of as a solid rectangle behind it.
+// Without this, the focus ring's solid fill shows through Ghostty's
+// semi-transparent background and the window looks opaque while focused.
+window-rule {
+    match app-id=r#"^com\.mitchellh\.ghostty$"#
+    draw-border-with-background false
+}
 
 // Example: block out two password managers from screen capture.
 // (This example rule is commented out with a "/-" in front.)
@@ -368,7 +389,7 @@ binds {
 
     // Suggested binds for running programs: terminal, app launcher, screen locker.
     Mod+Return hotkey-overlay-title="Open a Terminal: ghostty" { spawn "ghostty"; }
-    Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn-sh "qs -c noctalia-shell ipc call launcher toggle"; }
+    Mod+D hotkey-overlay-title="Run an Application: Noctalia" { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
     Super+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
 
     // Use spawn-sh to run a shell command. Do this if you need pipes, multiple commands, etc.
@@ -639,7 +660,7 @@ binds {
     // moving the mouse or pressing any other key.
     Mod+Shift+P { power-off-monitors; }
 }
-spawn-at-startup "qs" "-c" "noctalia-shell"
+spawn-at-startup "noctalia"
 window-rule {
   // Rounded corners for a modern look.
   geometry-corner-radius 20
