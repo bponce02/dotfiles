@@ -1,4 +1,4 @@
 # colors.json is regenerated per-machine from the wallpaper (pywal), so keep it untracked.
 # settings.json IS tracked: it holds the bar layout, wallpaper prefs, keybinds, etc.
-noctalia/.config/noctalia/colors.json
-noctalia/.config/noctalia/plugins/*/settings.json
+config/.config/noctalia/colors.json
+config/.config/noctalia/plugins/*/settings.json

@@ -74,7 +74,7 @@ for pkg in */; do
     done < <(stow -nv --no-folding --target="$HOME" "$pkg" 2>&1 \
         | sed -n 's/.*cannot stow .* over existing target \(.*\) since .*/\1/p')
     # --no-folding forces per-file symlinks instead of folding a whole dir into a
-    # single link. Critical for the claude package: without it, a fresh machine
+    # single link. Critical for the .claude tree in config: without it, a fresh machine
     # (no ~/.claude yet) would get all of ~/.claude symlinked into the repo,
     # dragging Claude Code's runtime state (history, sessions, creds) in with it.
     stow --no-folding --target="$HOME" "$pkg"
