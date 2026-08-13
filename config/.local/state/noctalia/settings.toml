@@ -1,0 +1,147 @@
+config_version = 12
+
+[lockscreen_widgets]
+enabled = false
+schema_version = 2
+widget_order = [
+    "lockscreen-login-box@DP-11",
+    "lockscreen-login-box@DP-9",
+    "lockscreen-login-box@DP-7",
+    "lockscreen-login-box@eDP-1"
+]
+
+    [lockscreen_widgets.grid]
+    cell_size = 16
+    major_interval = 4
+    visible = true
+
+    [lockscreen_widgets.widget."lockscreen-login-box@DP-11"]
+    box_height = 196.0
+    box_width = 810.0
+    cx = 960.0
+    cy = 898.0
+    output = "DP-11"
+    rotation = 0.0
+    type = "login_box"
+
+        [lockscreen_widgets.widget."lockscreen-login-box@DP-11".settings]
+        background_color = "surface_variant"
+        background_opacity = 0.88
+        background_radius = 12.0
+        center_password_text = false
+        input_opacity = 1.0
+        input_radius = 6.0
+        layout = "regular"
+        show_caps_lock = true
+        show_keyboard_layout = true
+        show_login_button = true
+        show_media = true
+        show_session_buttons = true
+        show_unlock_hint = true
+        show_weather = true
+
+    [lockscreen_widgets.widget."lockscreen-login-box@DP-7"]
+    box_height = 196.0
+    box_width = 810.0
+    cx = 960.0
+    cy = 898.0
+    output = "DP-7"
+    rotation = 0.0
+    type = "login_box"
+
+        [lockscreen_widgets.widget."lockscreen-login-box@DP-7".settings]
+        background_color = "surface_variant"
+        background_opacity = 0.88
+        background_radius = 12.0
+        center_password_text = false
+        input_opacity = 1.0
+        input_radius = 6.0
+        layout = "regular"
+        show_caps_lock = true
+        show_keyboard_layout = true
+        show_login_button = true
+        show_media = true
+        show_session_buttons = true
+        show_unlock_hint = true
+        show_weather = true
+
+    [lockscreen_widgets.widget."lockscreen-login-box@DP-9"]
+    box_height = 196.0
+    box_width = 810.0
+    cx = 960.0
+    cy = 898.0
+    output = "DP-9"
+    rotation = 0.0
+    type = "login_box"
+
+        [lockscreen_widgets.widget."lockscreen-login-box@DP-9".settings]
+        background_color = "surface_variant"
+        background_opacity = 0.88
+        background_radius = 12.0
+        center_password_text = false
+        input_opacity = 1.0
+        input_radius = 6.0
+        layout = "regular"
+        show_caps_lock = true
+        show_keyboard_layout = true
+        show_login_button = true
+        show_media = true
+        show_session_buttons = true
+        show_unlock_hint = true
+        show_weather = true
+
+    [lockscreen_widgets.widget."lockscreen-login-box@eDP-1"]
+    box_height = 196.0
+    box_width = 810.0
+    cx = 768.0
+    cy = 778.0
+    output = "eDP-1"
+    rotation = 0.0
+    type = "login_box"
+
+        [lockscreen_widgets.widget."lockscreen-login-box@eDP-1".settings]
+        background_color = "surface_variant"
+        background_opacity = 0.88
+        background_radius = 12.0
+        center_password_text = false
+        input_opacity = 1.0
+        input_radius = 6.0
+        layout = "regular"
+        show_caps_lock = true
+        show_keyboard_layout = true
+        show_login_button = true
+        show_media = true
+        show_session_buttons = true
+        show_unlock_hint = true
+        show_weather = true
+
+[plugins]
+enabled = [ "cleboost/zed-provider", "kenn/keybind-cheatsheet", "salemsayed/codexbar-meter" ]
+
+[theme]
+community_palette = "Ayu Blue"
+source = "community"
+
+[wallpaper.default]
+path = "/home/bponce/Pictures/Wallpapers/solar-system-planets-galaxy-orbit-sun-moon-stars-universe-3840x2160-6357.png"
+
+[wallpaper.last]
+path = "/home/bponce/Pictures/Wallpapers/solar-system-planets-galaxy-orbit-sun-moon-stars-universe-3840x2160-6357.png"
+
+[wallpaper.monitors.DP-11]
+path = "/home/bponce/Pictures/Wallpapers/solar-system-planets-galaxy-orbit-sun-moon-stars-universe-3840x2160-6357.png"
+
+[wallpaper.monitors.DP-7]
+path = "/home/bponce/Pictures/Wallpapers/solar-system-planets-galaxy-orbit-sun-moon-stars-universe-3840x2160-6357.png"
+
+[wallpaper.monitors.DP-9]
+path = "/home/bponce/Pictures/Wallpapers/solar-system-planets-galaxy-orbit-sun-moon-stars-universe-3840x2160-6357.png"
+
+[wallpaper.monitors.eDP-1]
+path = "/home/bponce/Pictures/Wallpapers/solar-system-planets-galaxy-orbit-sun-moon-stars-universe-3840x2160-6357.png"
+
+[widget.audio_visualizer]
+bands = 34
+color_2 = "secondary"
+show_when_idle = true
+width = 165

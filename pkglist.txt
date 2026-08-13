@@ -60,6 +60,7 @@ uv
 vim
 wireplumber
 wl-clipboard
+worktrunk
 xdg-desktop-portal-gnome
 xf86-video-amdgpu
 xwayland-satellite
