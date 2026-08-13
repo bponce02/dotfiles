@@ -59,9 +59,20 @@ start = ["clock", "weather", "cpu", "ram", "media"]
 center = ["salemsayed/codexbar-meter:bar", "audio_visualizer"]
 end = ["workspaces", "tray", "notifications", "battery", "volume", "brightness", "bluetooth", "network", "control-center"]
 
+# Keep the laptop bar compact while retaining the full layout on external displays.
+[bar.default.monitor.laptop]
+match = "eDP-1"
+start = ["clock_laptop", "cpu", "ram", "media"]
+center = ["salemsayed/codexbar-meter:bar"]
+end = ["workspaces", "tray", "notifications", "battery", "volume", "control-center"]
+
 [widget.clock]
 type = "clock"
 format = "{:%I:%M %p %a, %b %d}"
+
+[widget.clock_laptop]
+type = "clock"
+format = "{:%I:%M %p}"
 
 [widget.cpu]
 type = "sysmon"
