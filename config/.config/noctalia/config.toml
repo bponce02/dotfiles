@@ -56,7 +56,7 @@ scale = 1.0
 capsule = true
 capsule_opacity = 1.0
 start = ["clock", "weather", "cpu", "ram", "media"]
-center = ["audio_visualizer"]
+center = ["salemsayed/codexbar-meter:bar", "audio_visualizer"]
 end = ["workspaces", "tray", "notifications", "battery", "volume", "brightness", "bluetooth", "network", "control-center"]
 
 [widget.clock]
@@ -78,7 +78,12 @@ max_length = 145.0
 # v4's weather, color-scheme, and VPN plugins are native in v5. These two
 # still have direct v5 equivalents in the community catalog.
 [plugins]
-enabled = ["cleboost/zed-provider", "kenn/keybind-cheatsheet"]
+enabled = ["cleboost/zed-provider", "kenn/keybind-cheatsheet", "salemsayed/codexbar-meter"]
+
+[plugin_settings."salemsayed/codexbar-meter"]
+codexbarPath = "~/.local/bin/codexbar-noctalia"
+barProviderLimit = 3
+refreshIntervalSec = 60
 
 [weather]
 enabled = true

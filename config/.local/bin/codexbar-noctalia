@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""CodexBar adapter that supports OpenRouter inference keys.
+
+CodexBar requires an OpenRouter management key for account-wide credits. This
+adapter keeps CodexBar's Codex/Claude output, but replaces that provider error
+with usage from OpenRouter's per-key endpoint, which accepts ordinary keys.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+
+
+def real_codexbar() -> Path:
+    candidates = [
+        os.environ.get("CODEXBAR_REAL"),
+        Path.home() / ".local/lib/codexbar-cli/codexbar",
+        Path("/usr/lib/codexbar-cli/codexbar"),
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return Path(candidate)
+    raise SystemExit("codexbar-noctalia: could not find the real codexbar executable")
+
+
+def config() -> dict:
+    candidates = [
+        Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "codexbar/config.json",
+        Path.home() / ".codexbar/config.json",
+    ]
+    for path in candidates:
+        try:
+            return json.loads(path.read_text())
+        except FileNotFoundError:
+            continue
+    return {}
+
+
+def openrouter_settings(data: dict) -> dict:
+    for provider in data.get("providers", []):
+        if provider.get("id") == "openrouter":
+            return provider
+    return {}
+
+
+def money(value: object) -> str:
+    try:
+        return f"${max(0.0, float(value)):.2f}"
+    except (TypeError, ValueError):
+        return "$0.00"
+
+
+def fetch_openrouter(provider: dict) -> dict:
+    key = provider.get("apiKey") or os.environ.get("OPENROUTER_API_KEY")
+    if not key:
+        raise RuntimeError("OpenRouter API key is not configured")
+
+    base = (provider.get("apiURL") or os.environ.get("OPENROUTER_API_URL") or
+            "https://openrouter.ai/api/v1").rstrip("/")
+    request = urllib.request.Request(
+        f"{base}/key",
+        headers={
+            "Authorization": f"Bearer {key}",
+            "HTTP-Referer": os.environ.get("OPENROUTER_HTTP_REFERER", "https://noctalia.dev"),
+            "X-Title": os.environ.get("OPENROUTER_X_TITLE", "Noctalia CodexBar Meter"),
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            payload = json.load(response)
+    except urllib.error.HTTPError as error:
+        raise RuntimeError(f"OpenRouter key API returned HTTP {error.code}") from error
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise RuntimeError("OpenRouter key API returned an invalid response")
+
+    daily = data.get("usage_daily", 0)
+    weekly = data.get("usage_weekly", 0)
+    monthly = data.get("usage_monthly", 0)
+    result = {
+        "provider": "openrouter",
+        "source": "key-api",
+        # The stock panel understands credits and provider status. For an
+        # inference key this is spend, not account-wide remaining credits.
+        "credits": {"remaining": f"{money(daily)} today"},
+        "status": {
+            "indicator": "operational",
+            "description": (
+                f"Key spend · Today {money(daily)} · "
+                f"Week {money(weekly)} · Month {money(monthly)}"
+            ),
+        },
+    }
+
+    limit = data.get("limit")
+    if isinstance(limit, (int, float)) and limit > 0:
+        reset = data.get("limit_reset")
+        used = {
+            "daily": daily,
+            "weekly": weekly,
+            "monthly": monthly,
+        }.get(reset, data.get("usage", 0))
+        try:
+            used_percent = max(0.0, min(100.0, float(used) / float(limit) * 100.0))
+        except (TypeError, ValueError):
+            used_percent = 0.0
+        result["usage"] = {
+            "primary": {
+                "title": "Key budget",
+                "usedPercent": used_percent,
+            }
+        }
+    return result
+
+
+def main() -> int:
+    real = real_codexbar()
+    # Only adapt the JSON usage command used by the Noctalia plugin. All other
+    # CodexBar commands pass through unchanged.
+    if not sys.argv[1:] or sys.argv[1] != "usage" or "--json-only" not in sys.argv:
+        return subprocess.run([real, *sys.argv[1:]]).returncode
+
+    completed = subprocess.run(
+        [real, *sys.argv[1:]], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        sys.stderr.write(completed.stderr)
+        sys.stdout.write(completed.stdout)
+        return completed.returncode
+
+    providers = payload.get("providers", []) if isinstance(payload, dict) else payload
+    if not isinstance(providers, list):
+        sys.stdout.write(completed.stdout)
+        return completed.returncode
+
+    settings = openrouter_settings(config())
+    if settings.get("enabled", False):
+        try:
+            replacement = fetch_openrouter(settings)
+        except RuntimeError as error:
+            replacement = {
+                "provider": "openrouter",
+                "source": "key-api",
+                "error": {"kind": "provider", "message": str(error)},
+            }
+        for index, item in enumerate(providers):
+            if isinstance(item, dict) and item.get("provider") == "openrouter":
+                providers[index] = replacement
+                break
+        else:
+            providers.append(replacement)
+
+    json.dump(payload, sys.stdout, separators=(",", ":"))
+    sys.stdout.write("\n")
+    remaining_errors = [item for item in providers if isinstance(item, dict) and item.get("error")]
+    return 1 if remaining_errors else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
