@@ -11,3 +11,5 @@ PS1='[\u@\h \W]\$ '
 
 # uv
 export PATH="/home/bponce/.local/bin:$PATH"
+
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init bash)"; fi
