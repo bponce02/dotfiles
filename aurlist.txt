@@ -1,10 +1,7 @@
 arduino-ide-bin
-bambu-studio-bin
 claude-code
 codexbar-cli-bin
 github-desktop-bin
-google-chrome
-mozillavpn
-noctalia-shell
+google-chrome-bin
 python-pywalfox
-yay-bin
+yay

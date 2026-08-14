@@ -62,19 +62,30 @@ for pkg in */; do
     pkg="${pkg%/}"
     while IFS= read -r target; do
         [ -n "$target" ] || continue
-        [ -e "$HOME/$target" ] || continue   # gone already
-        [ -L "$HOME/$target" ] && continue    # an existing symlink is fine
+        # -e is false for dangling symlinks left behind when the repo moves.
+        # Back those up too so stow can recreate them with the current path.
+        [[ -e "$HOME/$target" || -L "$HOME/$target" ]] || continue
         mkdir -p "$BACKUP_DIR/$(dirname "$target")"
         mv "$HOME/$target" "$BACKUP_DIR/$target"
         echo "backed up ~/$target -> $BACKUP_DIR/$target"
     done < <(stow -nv --no-folding --target="$HOME" "$pkg" 2>&1 \
-        | sed -n 's/.*cannot stow .* over existing target \(.*\) since .*/\1/p')
+        | sed -n \
+            -e 's/.*cannot stow .* over existing target \(.*\) since .*/\1/p' \
+            -e 's/^[[:space:]]*\* existing target is not owned by stow: //p')
     # --no-folding forces per-file symlinks instead of folding a whole dir into a
     # single link. Critical for the .claude tree in config: without it, a fresh machine
     # (no ~/.claude yet) would get all of ~/.claude symlinked into the repo,
     # dragging Claude Code's runtime state (history, sessions, creds) in with it.
     stow --no-folding --target="$HOME" "$pkg"
 done
+
+# Keep Firefox as the default even though Chrome is installed. Normally the
+# tracked mimeapps.list already does this; the explicit check also repairs a
+# default selected by Chrome during its first-run setup.
+if command -v xdg-settings &>/dev/null \
+    && [[ "$(xdg-settings get default-web-browser 2>/dev/null || true)" != firefox.desktop ]]; then
+    xdg-settings set default-web-browser firefox.desktop
+fi
 
 # Apply CodexBar's tracked provider selection. Credentials intentionally stay
 # machine-local; export OPENROUTER_API_KEY before install to provision it too.

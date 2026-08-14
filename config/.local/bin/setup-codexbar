@@ -18,17 +18,35 @@ while IFS= read -r provider; do
     codexbar config enable --provider "$provider"
 done < "$PROVIDER_FILE"
 
-# Credentials are deliberately not stored in dotfiles. Set this environment
-# variable while running setup to provision OpenRouter on a new machine.
-if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
-    printf '%s' "$OPENROUTER_API_KEY" |
-        codexbar config set-api-key --provider openrouter --stdin
+# Credentials are deliberately not stored in dotfiles. Use the environment
+# variable when supplied; otherwise ask for the key when running interactively.
+openrouter_key="${OPENROUTER_API_KEY:-}"
+if grep -qx openrouter "$PROVIDER_FILE"; then
+    if [[ -z "$openrouter_key" && -t 0 ]]; then
+        read -rsp "OpenRouter API key (leave blank to skip): " openrouter_key
+        echo
+    fi
+
+    if [[ -n "$openrouter_key" ]]; then
+        printf '%s' "$openrouter_key" |
+            codexbar config set-api-key --provider openrouter --stdin
+    else
+        echo "OpenRouter key not configured. Set OPENROUTER_API_KEY and rerun setup-codexbar."
+    fi
 fi
+unset openrouter_key
 
 echo "CodexBar providers configured."
-if grep -qx openrouter "$PROVIDER_FILE" && [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
-    echo "OpenRouter still needs a machine-local key; run:"
-    echo "  read -rsp 'OpenRouter key: ' OPENROUTER_API_KEY; export OPENROUTER_API_KEY"
-    echo "  setup-codexbar"
-    echo "  unset OPENROUTER_API_KEY"
+
+# Restart a running Noctalia instance so the bar and its CodexBar plugin pick
+# up the new provider configuration immediately. Do not start it from a TTY
+# where a graphical session may not be available.
+if command -v noctalia &>/dev/null && pgrep -x noctalia &>/dev/null; then
+    pkill -x noctalia
+    for _ in {1..50}; do
+        pgrep -x noctalia &>/dev/null || break
+        sleep 0.1
+    done
+    noctalia --daemon
+    echo "Noctalia bar restarted."
 fi
