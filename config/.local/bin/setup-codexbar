@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROVIDER_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/codexbar/providers"
+
+if ! command -v codexbar &>/dev/null; then
+    echo "setup-codexbar: codexbar is not installed" >&2
+    exit 1
+fi
+
+if [[ ! -f "$PROVIDER_FILE" ]]; then
+    echo "setup-codexbar: provider list not found at $PROVIDER_FILE" >&2
+    exit 1
+fi
+
+while IFS= read -r provider; do
+    [[ -n "$provider" && "$provider" != \#* ]] || continue
+    codexbar config enable --provider "$provider"
+done < "$PROVIDER_FILE"
+
+# Credentials are deliberately not stored in dotfiles. Set this environment
+# variable while running setup to provision OpenRouter on a new machine.
+if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
+    printf '%s' "$OPENROUTER_API_KEY" |
+        codexbar config set-api-key --provider openrouter --stdin
+fi
+
+echo "CodexBar providers configured."
+if grep -qx openrouter "$PROVIDER_FILE" && [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
+    echo "OpenRouter still needs a machine-local key; run:"
+    echo "  read -rsp 'OpenRouter key: ' OPENROUTER_API_KEY; export OPENROUTER_API_KEY"
+    echo "  setup-codexbar"
+    echo "  unset OPENROUTER_API_KEY"
+fi

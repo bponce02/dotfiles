@@ -76,6 +76,12 @@ for pkg in */; do
     stow --no-folding --target="$HOME" "$pkg"
 done
 
+# Apply CodexBar's tracked provider selection. Credentials intentionally stay
+# machine-local; export OPENROUTER_API_KEY before install to provision it too.
+if command -v setup-codexbar &>/dev/null; then
+    setup-codexbar
+fi
+
 # 9. Enable system services (skips any not present so a missing unit won't abort)
 for svc in "${SERVICES[@]}"; do
     if systemctl cat "$svc" &> /dev/null; then
