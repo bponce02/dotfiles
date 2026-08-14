@@ -1,18 +1,84 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 
-# Official repo packages
-pacman -Qqen > "$SCRIPT_DIR/pkglist.txt"
+# Refresh a package list without replacing an existing foo with foo-bin (or
+# vice versa). This lets the list record the variant we want on a fresh install,
+# regardless of which variant happens to be installed on this machine.
+#
+# A line containing "# package-name" opts that package out of syncing. The
+# exclusion also applies to its -bin/non-bin counterpart and is kept in the file.
+sync_package_list() {
+    local list_file="$1"
+    shift
 
-# AUR packages. Prefer prebuilt -bin variants where the AUR provides them so
-# restoring the system does not spend time compiling large applications.
-pacman -Qqem > "$SCRIPT_DIR/aurlist.txt"
-sed -i \
-    -e 's/^bambu-studio$/bambu-studio-bin/' \
-    -e 's/^codexbar-cli$/codexbar-cli-bin/' \
-    -e 's/^yay$/yay-bin/' \
-    "$SCRIPT_DIR/aurlist.txt"
+    local installed_file output_file
+    installed_file="$(mktemp)"
+    output_file="$(mktemp "${list_file}.XXXXXX")"
+
+    "$@" > "$installed_file"
+    awk '
+        function package_key(package) {
+            sub(/-bin$/, "", package)
+            return package
+        }
+
+        # First input: packages currently installed.
+        FILENAME == ARGV[1] {
+            installed[++installed_count] = $0
+            next
+        }
+
+        # A single commented package name is a persistent opt-out.
+        /^[[:space:]]*#[[:space:]]*[^[:space:]#]+[[:space:]]*$/ {
+            package = $0
+            sub(/^[[:space:]]*#[[:space:]]*/, "", package)
+            sub(/[[:space:]]*$/, "", package)
+            excluded[package_key(package)] = 1
+            comments[++comment_count] = $0
+            next
+        }
+
+        # Preserve explanatory comments too.
+        /^[[:space:]]*#/ {
+            comments[++comment_count] = $0
+            next
+        }
+
+        NF {
+            preferred[package_key($1)] = $1
+        }
+
+        END {
+            for (i = 1; i <= comment_count; i++)
+                print comments[i]
+
+            for (i = 1; i <= installed_count; i++) {
+                package = installed[i]
+                key = package_key(package)
+                if (excluded[key] || emitted[key])
+                    continue
+
+                if (key in preferred)
+                    print preferred[key]
+                else
+                    print package
+                emitted[key] = 1
+            }
+        }
+    ' "$installed_file" "$list_file" > "$output_file"
+
+    chmod --reference="$list_file" "$output_file"
+    mv "$output_file" "$list_file"
+    rm -f "$installed_file"
+}
+
+# Official repo packages
+sync_package_list "$SCRIPT_DIR/pkglist.txt" pacman -Qqen
+
+# AUR packages
+sync_package_list "$SCRIPT_DIR/aurlist.txt" pacman -Qqem
 
 # Sync CodexBar's provider selection, but never its API keys or OAuth tokens.
 # Credentials remain machine-local and setup-codexbar can provision a key from

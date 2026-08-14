@@ -29,11 +29,23 @@ if ! command -v yay &> /dev/null; then
     rm -rf "$tmpdir"
 fi
 
+# Install active entries only. A line containing "# package-name" is retained by
+# sync.sh as an opt-out and must not be passed to pacman/yay.
+install_package_list() {
+    local list_file="$1"
+    shift
+
+    local -a packages=()
+    mapfile -t packages < <(awk 'NF && $1 !~ /^#/ { print $1 }' "$list_file")
+    ((${#packages[@]})) || return 0
+    "$@" -- "${packages[@]}"
+}
+
 # 4. Official repo packages
-sudo pacman -S --needed --noconfirm - < "$SCRIPT_DIR/pkglist.txt"
+install_package_list "$SCRIPT_DIR/pkglist.txt" sudo pacman -S --needed --noconfirm
 
 # 5. AUR packages
-yay -S --needed --noconfirm - < "$SCRIPT_DIR/aurlist.txt"
+install_package_list "$SCRIPT_DIR/aurlist.txt" yay -S --needed --noconfirm
 
 # 6. Tools that ship their own curl-pipe installers (see curllist.txt)
 # (fd 3 so an installer that reads stdin can't swallow the rest of the list)

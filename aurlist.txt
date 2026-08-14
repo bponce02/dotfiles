@@ -1,7 +1,12 @@
+# Use "# package-name" to keep an installed package out of future syncs.
 arduino-ide-bin
 claude-code
 codexbar-cli-bin
 github-desktop-bin
-google-chrome-bin
+google-chrome
+localsend-bin
+mozillavpn
 python-pywalfox
-yay
+yay-bin
+yay-debug
+#bambu-studio

@@ -1,3 +1,4 @@
+# Use "# package-name" to keep an installed package out of future syncs.
 amd-ucode
 base
 base-devel
@@ -32,6 +33,7 @@ libpulse
 libreoffice-fresh
 linux
 linux-firmware
+lvm2
 nano
 nautilus
 neovim
@@ -58,6 +60,7 @@ ttf-liberation
 ufw
 uv
 vim
+wireless-regdb
 wireplumber
 wl-clipboard
 worktrunk
@@ -65,4 +68,5 @@ xdg-desktop-portal-gnome
 xf86-video-amdgpu
 xwayland-satellite
 zed
+zip
 zram-generator
