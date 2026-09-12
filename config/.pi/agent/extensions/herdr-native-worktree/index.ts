@@ -7,6 +7,9 @@ import {
   buildPiCommand,
   parentCheckout,
   parseGitWorktreePorcelain,
+  parseHerdrTabCount,
+  parseHerdrTabCreateResult,
+  parseHerdrTabPaneCount,
   parseHerdrWorktreeResult,
 } from "./helpers.ts";
 
@@ -68,6 +71,16 @@ async function startWorktree(
   if (!requestedBranch) throw new Error("branch must not be empty");
   const currentSession = requireSessionFile(ctx);
   const source = await realpath(ctx.cwd);
+  const sourceWorkspace = process.env.HERDR_WORKSPACE_ID!;
+  const sourceTab = process.env.HERDR_TAB_ID;
+  const sourcePane = process.env.HERDR_PANE_ID;
+  if (!sourceTab || !sourcePane) throw new Error("Herdr did not provide the current tab and pane IDs");
+  const sourceTabCount = parseHerdrTabCount(
+    await herdr(pi, ["tab", "list", "--workspace", sourceWorkspace], signal, 10_000),
+  );
+  const sourcePaneCount = parseHerdrTabPaneCount(
+    await herdr(pi, ["tab", "get", sourceTab], signal, 10_000),
+  );
   const snapshot = await createSessionSnapshot(ctx.sessionManager);
   let createdWorkspace: string | undefined;
   let newSessionFile: string | undefined;
@@ -94,10 +107,23 @@ async function startWorktree(
       newSessionFile,
       opened.path,
       `Moved to native Herdr worktree ${opened.path}. Continue.`,
+      process.platform,
+      {
+        PI_HERDR_RETURN_WORKSPACE_ID: process.env.PI_HERDR_RETURN_WORKSPACE_ID ?? sourceWorkspace,
+        PI_HERDR_RETURN_TAB_ID: process.env.PI_HERDR_RETURN_TAB_ID ?? sourceTab,
+        PI_HERDR_RETURN_PANE_ID: process.env.PI_HERDR_RETURN_PANE_ID ?? sourcePane,
+      },
     );
     await herdr(pi, ["pane", "run", opened.paneId, command], signal, 10_000);
     replacementStarted = true;
-    await scheduleSessionCleanup(pi, currentSession, process.pid);
+    await scheduleSessionCleanup(
+      pi,
+      currentSession,
+      sourceTab,
+      sourcePane,
+      sourcePaneCount > 1 ? "pane" : sourceTabCount > 1 ? "tab" : "none",
+      process.pid,
+    );
     ctx.ui.setStatus("herdr-worktree", undefined);
     ctx.shutdown();
     return {
@@ -160,15 +186,27 @@ async function finishWorktree(
   let newSessionFile: string | undefined;
   try {
     const parentWorkspace = parseHerdrWorktreeResult(
-      await herdr(pi, ["worktree", "open", "--cwd", parent.path, "--path", parent.path, "--focus"], signal, 10_000),
+      await herdr(pi, ["worktree", "open", "--cwd", parent.path, "--path", parent.path, "--no-focus"], signal, 10_000),
     );
+    const parentTarget = await selectParentTarget(pi, parentWorkspace, parent.path, signal);
     newSessionFile = await forkSessionFile(snapshot.file, parent.path);
-    await herdr(pi, ["pane", "run", parentWorkspace.paneId, buildPiCommand(
+    await herdr(pi, ["workspace", "focus", parentTarget.workspaceId], signal, 10_000);
+    await herdr(pi, ["tab", "focus", parentTarget.tabId], signal, 10_000);
+    await herdr(pi, ["pane", "run", parentTarget.paneId, buildPiCommand(
       newSessionFile,
       parent.path,
       `Merged ${current.branch} into ${target}. Continue in the parent checkout.`,
     )], signal, 10_000);
-    await scheduleFinishCleanup(pi, currentSession, process.env.HERDR_WORKSPACE_ID!, current.branch, parent.path, options.deleteBranch, process.pid);
+    await scheduleFinishCleanup(
+      pi,
+      currentSession,
+      process.env.HERDR_WORKSPACE_ID!,
+      currentPath,
+      current.branch,
+      parent.path,
+      options.deleteBranch,
+      process.pid,
+    );
     ctx.ui.setStatus("herdr-worktree", undefined);
     ctx.shutdown();
     return {
@@ -238,14 +276,55 @@ async function forkSessionFile(source: string, cwd: string): Promise<string> {
   return file;
 }
 
+async function selectParentTarget(
+  pi: ExtensionAPI,
+  parentWorkspace: ReturnType<typeof parseHerdrWorktreeResult>,
+  parentPath: string,
+  signal: ExecSignal,
+): Promise<{ workspaceId: string; tabId: string; paneId: string }> {
+  const returnWorkspace = process.env.PI_HERDR_RETURN_WORKSPACE_ID;
+  const returnTab = process.env.PI_HERDR_RETURN_TAB_ID;
+  const returnPane = process.env.PI_HERDR_RETURN_PANE_ID;
+  if (
+    returnWorkspace === parentWorkspace.workspaceId
+    && returnTab
+    && returnPane
+    && await herdrResourceExists(pi, ["tab", "get", returnTab], signal)
+    && await herdrResourceExists(pi, ["pane", "get", returnPane], signal)
+  ) {
+    return { workspaceId: returnWorkspace, tabId: returnTab, paneId: returnPane };
+  }
+  if (!parentWorkspace.alreadyOpen) {
+    return {
+      workspaceId: parentWorkspace.workspaceId,
+      tabId: parentWorkspace.tabId,
+      paneId: parentWorkspace.paneId,
+    };
+  }
+  return parseHerdrTabCreateResult(
+    await herdr(pi, ["tab", "create", "--workspace", parentWorkspace.workspaceId, "--cwd", parentPath, "--no-focus"], signal, 10_000),
+  );
+}
+
+async function herdrResourceExists(pi: ExtensionAPI, args: string[], signal: ExecSignal): Promise<boolean> {
+  const result = await pi.exec("herdr", args, { signal, timeout: 10_000 });
+  return result.code === 0;
+}
+
 async function scheduleSessionCleanup(
   pi: ExtensionAPI,
   oldSession: string,
+  oldTab: string,
+  oldPane: string,
+  close: "tab" | "pane" | "none",
   oldPid: number,
 ): Promise<void> {
-  // The source workspace is the native parent of the worktree group. Keep it open;
-  // only retire this Pi process's superseded session file after shutdown.
-  const script = `while kill -0 ${oldPid} 2>/dev/null; do sleep 0.1; done; rm -f -- ${shellQuote(oldSession)}`;
+  const closeCommand = close === "tab"
+    ? `; herdr tab close ${shellQuote(oldTab)} >/dev/null 2>&1 || true`
+    : close === "pane"
+      ? `; herdr pane close ${shellQuote(oldPane)} >/dev/null 2>&1 || true`
+      : "";
+  const script = `while kill -0 ${oldPid} 2>/dev/null; do sleep 0.1; done; rm -f -- ${shellQuote(oldSession)}${closeCommand}`;
   await detach(pi, script);
 }
 
@@ -253,13 +332,16 @@ async function scheduleFinishCleanup(
   pi: ExtensionAPI,
   oldSession: string,
   oldWorkspace: string,
+  worktreePath: string,
   branch: string,
   parentPath: string,
   deleteBranch: boolean,
   oldPid: number,
 ): Promise<void> {
   const deleteCommand = deleteBranch ? `; git -C ${shellQuote(parentPath)} branch -d ${shellQuote(branch)} >/dev/null 2>&1 || true` : "";
-  const script = `while kill -0 ${oldPid} 2>/dev/null; do sleep 0.1; done; rm -f -- ${shellQuote(oldSession)}; herdr worktree remove --workspace ${shellQuote(oldWorkspace)} >/dev/null 2>&1 || true${deleteCommand}`;
+  // Start removal while the workspace ID is still valid. Herdr closes the old pane,
+  // which terminates oldPid; direct Git removal is a fallback for a lost workspace.
+  const script = `sleep 0.1; herdr worktree remove --workspace ${shellQuote(oldWorkspace)} >/dev/null 2>&1 || git -C ${shellQuote(parentPath)} worktree remove ${shellQuote(worktreePath)} >/dev/null 2>&1; while kill -0 ${oldPid} 2>/dev/null; do sleep 0.1; done; rm -f -- ${shellQuote(oldSession)}${deleteCommand}`;
   await detach(pi, script);
 }
 

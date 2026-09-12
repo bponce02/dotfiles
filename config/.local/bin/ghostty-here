@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Spawn ghostty in the working directory of the focused window.
+#
+# Scans the focused window's full descendant tree. Ghostty is a single process
+# for all of its windows/tabs, so following one child chain can land in the
+# wrong tab; instead, prefer the most recently started nvim (its cwd follows
+# the project via project.nvim), then the most recently started descendant of
+# any kind. Falls back to $HOME.
+set -euo pipefail
+
+win_pid="$(niri msg --json focused-window 2>/dev/null | grep -o '"pid":[0-9]*' | grep -o '[0-9]*')" || true
+
+dir=""
+if [[ -n "${win_pid:-}" ]]; then
+    # Collect all descendants breadth-first.
+    queue=("$win_pid") desc=()
+    while ((${#queue[@]})); do
+        p="${queue[0]}"; queue=("${queue[@]:1}")
+        while read -r kid; do
+            [[ -n "$kid" ]] || continue
+            desc+=("$kid"); queue+=("$kid")
+        done < <(ps -o pid= --ppid "$p" 2>/dev/null | tr -d ' ' || true)
+    done
+
+    nvim_pid="" nvim_age="" newest_pid="" newest_age=""
+    for p in "${desc[@]}"; do
+        read -r comm age < <(ps -o comm=,etimes= -p "$p" 2>/dev/null || true) || true
+        [[ -n "${age:-}" ]] || continue
+        if [[ "$comm" == nvim && ( -z "$nvim_age" || "$age" -lt "$nvim_age" ) ]]; then
+            nvim_pid="$p" nvim_age="$age"
+        fi
+        if [[ -z "$newest_age" || "$age" -lt "$newest_age" ]]; then
+            newest_pid="$p" newest_age="$age"
+        fi
+    done
+
+    for p in "$nvim_pid" "$newest_pid" "$win_pid"; do
+        [[ -n "$p" ]] || continue
+        dir="$(readlink "/proc/$p/cwd" 2>/dev/null || true)"
+        [[ -d "$dir" && "$dir" != "/" ]] && break
+    done
+fi
+
+[[ -d "${dir:-}" && "$dir" != "/" ]] || dir="$HOME"
+exec ghostty --working-directory="$dir"

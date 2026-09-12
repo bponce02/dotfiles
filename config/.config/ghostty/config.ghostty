@@ -1,8 +1,7 @@
 theme = noctalia
-background-opacity = 0.85
-background-blur-radius = 20
-# Keep full-screen terminal apps (such as pi, tmux, and Neovim) transparent too.
-background-opacity-cells = true
+background-opacity = 1.0
+background-blur-radius = 0
+background-opacity-cells = false
 window-decoration = false
 window-padding-x = 10
 window-padding-y = 10

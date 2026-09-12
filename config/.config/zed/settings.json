@@ -12,9 +12,9 @@
     "edit_prediction_provider": "zed",
   },
   "edit_predictions": {
-    "mode": "eager",
+    "mode": "subtle",
   },
-  "diff_view_style": "split",
+  "diff_view_style": "unified",
   "proxy": "",
   "cli_default_open_behavior": "existing_window",
   "project_panel": {

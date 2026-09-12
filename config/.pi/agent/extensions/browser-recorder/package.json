@@ -1,0 +1,8 @@
+{
+  "name": "pi-browser-recorder",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "playwright": "^1.61.0"
+  }
+}
