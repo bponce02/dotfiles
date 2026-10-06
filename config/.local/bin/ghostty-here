@@ -8,9 +8,17 @@
 # any kind. Falls back to $HOME.
 set -euo pipefail
 
-win_pid="$(niri msg --json focused-window 2>/dev/null | grep -o '"pid":[0-9]*' | grep -o '[0-9]*')" || true
+focused_window="$(niri msg --json focused-window 2>/dev/null || true)"
+win_pid="$(grep -o '"pid":[0-9]*' <<<"$focused_window" | grep -o '[0-9]*')" || true
+app_id="$(grep -o '"app_id":"[^"]*"' <<<"$focused_window" | cut -d'"' -f4)" || true
 
 dir=""
+# Browsers have many short-lived content processes and no useful project cwd.
+# Skip the descendant scan so opening a terminal from Firefox stays instant.
+if [[ "${app_id:-}" =~ (firefox|chromium|google-chrome)$ ]]; then
+    exec ghostty --working-directory="$HOME"
+fi
+
 if [[ -n "${win_pid:-}" ]]; then
     # Collect all descendants breadth-first.
     queue=("$win_pid") desc=()
@@ -25,7 +33,7 @@ if [[ -n "${win_pid:-}" ]]; then
     nvim_pid="" nvim_age="" newest_pid="" newest_age=""
     for p in "${desc[@]}"; do
         read -r comm age < <(ps -o comm=,etimes= -p "$p" 2>/dev/null || true) || true
-        [[ -n "${age:-}" ]] || continue
+        [[ "${age:-}" =~ ^[0-9]+$ ]] || continue
         if [[ "$comm" == nvim && ( -z "$nvim_age" || "$age" -lt "$nvim_age" ) ]]; then
             nvim_pid="$p" nvim_age="$age"
         fi

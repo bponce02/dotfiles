@@ -107,6 +107,18 @@ input {
     position x=1280 y=0
 }
 
+output "ASUSTek COMPUTER INC VA24D M5LMQS098992" {
+    position x=0 y=0
+}
+
+output "ASUSTek COMPUTER INC ASUS VZ27EHE N9LMTJ009256" {
+    position x=1920 y=0
+}
+
+output "ASUSTek COMPUTER INC VA24D R7LMQS078138" {
+    position x=3840 y=0
+}
+
 // Settings that influence how windows are positioned and sized.
 // Find more information on the wiki:
 // https://niri-wm.github.io/niri/Configuration:-Layout
@@ -298,8 +310,8 @@ screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
 // The wiki explains how to configure individual animations:
 // https://niri-wm.github.io/niri/Configuration:-Animations
 animations {
-    // Uncomment to turn off all animations.
-    // off
+    // Turn off all animations.
+    off
 
     // Slow down all animations by this factor. Values below 1 speed them up instead.
     // slowdown 3.0

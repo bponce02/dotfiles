@@ -2,3 +2,6 @@
 # settings.json IS tracked: it holds the bar layout, wallpaper prefs, keybinds, etc.
 config/.config/noctalia/colors.json
 config/.config/noctalia/plugins/*/settings.json
+
+# Local Cloudflare account cache.
+.cloudflare/

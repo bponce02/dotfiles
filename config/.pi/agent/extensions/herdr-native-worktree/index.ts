@@ -1,17 +1,17 @@
-import { readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import {
   buildPiCommand,
+  mainCheckout,
   parentCheckout,
-  parseGitWorktreePorcelain,
   parseHerdrTabCount,
-  parseHerdrTabCreateResult,
   parseHerdrTabPaneCount,
   parseHerdrWorktreeResult,
 } from "./helpers.ts";
+import { ensureParentWorkspace, preserveParentWorkspace, resolveCheckouts, selectParentTarget } from "./workspaces.ts";
 
 type ExecSignal = AbortSignal | undefined;
 
@@ -70,12 +70,14 @@ async function startWorktree(
   assertHerdr();
   if (!requestedBranch) throw new Error("branch must not be empty");
   const currentSession = requireSessionFile(ctx);
-  const source = await realpath(ctx.cwd);
+  const { source, worktrees } = await resolveCheckouts(ctx.cwd, (cwd, args) => git(pi, cwd, args, signal));
+  const parent = mainCheckout(worktrees);
+  if (parent.branch === requestedBranch) throw new Error("The requested branch is the main checkout; choose a feature branch");
   const sourceWorkspace = process.env.HERDR_WORKSPACE_ID!;
   const sourceTab = process.env.HERDR_TAB_ID;
   const sourcePane = process.env.HERDR_PANE_ID;
   if (!sourceTab || !sourcePane) throw new Error("Herdr did not provide the current tab and pane IDs");
-  const sourceTabCount = parseHerdrTabCount(
+  let sourceTabCount = parseHerdrTabCount(
     await herdr(pi, ["tab", "list", "--workspace", sourceWorkspace], signal, 10_000),
   );
   const sourcePaneCount = parseHerdrTabPaneCount(
@@ -88,14 +90,15 @@ async function startWorktree(
 
   ctx.ui.setStatus("herdr-worktree", "creating native worktree");
   try {
-    const worktrees = parseGitWorktreePorcelain(
-      await git(pi, source, ["worktree", "list", "--porcelain"], signal),
-    );
-    const existing = worktrees.find((entry) => entry.branch === requestedBranch && entry.path !== source);
+    const runHerdr = (args: string[]) => herdr(pi, args, signal, 10_000);
+    const parentWorkspace = await ensureParentWorkspace(runHerdr, parent.path);
+    sourceTabCount = await preserveParentWorkspace(runHerdr, parentWorkspace, sourceWorkspace, sourceTabCount, sourcePaneCount);
+    const existing = worktrees.find((entry) => entry.branch === requestedBranch);
+    if (existing?.path === source) throw new Error("Already in the requested worktree");
     const args = existing
-      ? ["worktree", "open", "--cwd", source, "--path", existing.path, "--focus"]
-      : ["worktree", "create", "--cwd", source, "--branch", requestedBranch];
-    if (!existing && base) args.push("--base", base);
+      ? ["worktree", "open", "--workspace", parentWorkspace.workspaceId, "--path", existing.path, "--focus"]
+      : ["worktree", "create", "--workspace", parentWorkspace.workspaceId, "--branch", requestedBranch];
+    if (!existing) args.push("--base", base || (await git(pi, source, ["rev-parse", "HEAD"], signal)).trim());
     if (!existing) args.push("--focus");
     const opened = parseHerdrWorktreeResult(await herdr(pi, args, signal, 300_000));
     if (opened.alreadyOpen) {
@@ -108,11 +111,6 @@ async function startWorktree(
       opened.path,
       `Moved to native Herdr worktree ${opened.path}. Continue.`,
       process.platform,
-      {
-        PI_HERDR_RETURN_WORKSPACE_ID: process.env.PI_HERDR_RETURN_WORKSPACE_ID ?? sourceWorkspace,
-        PI_HERDR_RETURN_TAB_ID: process.env.PI_HERDR_RETURN_TAB_ID ?? sourceTab,
-        PI_HERDR_RETURN_PANE_ID: process.env.PI_HERDR_RETURN_PANE_ID ?? sourcePane,
-      },
     );
     await herdr(pi, ["pane", "run", opened.paneId, command], signal, 10_000);
     replacementStarted = true;
@@ -136,7 +134,7 @@ async function startWorktree(
     if (createdWorkspace && !replacementStarted) {
       await herdr(pi, ["workspace", "close", createdWorkspace], undefined, 10_000).catch(() => undefined);
     }
-    if (newSessionFile) await rm(newSessionFile, { force: true }).catch(() => undefined);
+    if (newSessionFile && !replacementStarted) await rm(newSessionFile, { force: true }).catch(() => undefined);
     throw error;
   } finally {
     await snapshot.cleanup().catch(() => undefined);
@@ -151,9 +149,7 @@ async function finishWorktree(
 ) {
   assertHerdr();
   const currentSession = requireSessionFile(ctx);
-  const currentPath = await realpath(ctx.cwd);
-  const worktreesRaw = await git(pi, currentPath, ["worktree", "list", "--porcelain"], signal);
-  const worktrees = parseGitWorktreePorcelain(worktreesRaw);
+  const { source: currentPath, worktrees } = await resolveCheckouts(ctx.cwd, (cwd, args) => git(pi, cwd, args, signal));
   const current = worktrees.find((entry) => entry.path === currentPath);
   if (!current?.branch) throw new Error("Current checkout is detached or not a Git worktree");
   const parent = parentCheckout(worktrees, currentPath);
@@ -168,6 +164,8 @@ async function finishWorktree(
   const ahead = Number((await git(pi, parent.path, ["rev-list", "--count", `${target}..${current.branch}`], signal)).trim());
   if (!Number.isFinite(ahead) || ahead < 1) throw new Error(`${current.branch} has no commits to merge into ${target}`);
 
+  const runHerdr = (args: string[]) => herdr(pi, args, signal, 10_000);
+  const parentWorkspace = await ensureParentWorkspace(runHerdr, parent.path);
   ctx.ui.setStatus("herdr-worktree", `merging ${current.branch} into ${target}`);
   const mergeArgs = options.strategy === "squash"
     ? ["merge", "--squash", current.branch]
@@ -184,11 +182,9 @@ async function finishWorktree(
 
   const snapshot = await createSessionSnapshot(ctx.sessionManager);
   let newSessionFile: string | undefined;
+  let replacementStarted = false;
   try {
-    const parentWorkspace = parseHerdrWorktreeResult(
-      await herdr(pi, ["worktree", "open", "--cwd", parent.path, "--path", parent.path, "--no-focus"], signal, 10_000),
-    );
-    const parentTarget = await selectParentTarget(pi, parentWorkspace, parent.path, signal);
+    const parentTarget = await selectParentTarget(runHerdr, parentWorkspace);
     newSessionFile = await forkSessionFile(snapshot.file, parent.path);
     await herdr(pi, ["workspace", "focus", parentTarget.workspaceId], signal, 10_000);
     await herdr(pi, ["tab", "focus", parentTarget.tabId], signal, 10_000);
@@ -197,6 +193,7 @@ async function finishWorktree(
       parent.path,
       `Merged ${current.branch} into ${target}. Continue in the parent checkout.`,
     )], signal, 10_000);
+    replacementStarted = true;
     await scheduleFinishCleanup(
       pi,
       currentSession,
@@ -216,7 +213,7 @@ async function finishWorktree(
     };
   } catch (error) {
     ctx.ui.setStatus("herdr-worktree", undefined);
-    if (newSessionFile) await rm(newSessionFile, { force: true }).catch(() => undefined);
+    if (newSessionFile && !replacementStarted) await rm(newSessionFile, { force: true }).catch(() => undefined);
     throw new Error(`Merge succeeded but session handoff failed; the worktree was preserved. ${errorMessage(error)}`);
   } finally {
     await snapshot.cleanup().catch(() => undefined);
@@ -274,41 +271,6 @@ async function forkSessionFile(source: string, cwd: string): Promise<string> {
   lines[0] = JSON.stringify(header);
   await writeFile(file, `${lines.join("\n")}\n`, "utf8");
   return file;
-}
-
-async function selectParentTarget(
-  pi: ExtensionAPI,
-  parentWorkspace: ReturnType<typeof parseHerdrWorktreeResult>,
-  parentPath: string,
-  signal: ExecSignal,
-): Promise<{ workspaceId: string; tabId: string; paneId: string }> {
-  const returnWorkspace = process.env.PI_HERDR_RETURN_WORKSPACE_ID;
-  const returnTab = process.env.PI_HERDR_RETURN_TAB_ID;
-  const returnPane = process.env.PI_HERDR_RETURN_PANE_ID;
-  if (
-    returnWorkspace === parentWorkspace.workspaceId
-    && returnTab
-    && returnPane
-    && await herdrResourceExists(pi, ["tab", "get", returnTab], signal)
-    && await herdrResourceExists(pi, ["pane", "get", returnPane], signal)
-  ) {
-    return { workspaceId: returnWorkspace, tabId: returnTab, paneId: returnPane };
-  }
-  if (!parentWorkspace.alreadyOpen) {
-    return {
-      workspaceId: parentWorkspace.workspaceId,
-      tabId: parentWorkspace.tabId,
-      paneId: parentWorkspace.paneId,
-    };
-  }
-  return parseHerdrTabCreateResult(
-    await herdr(pi, ["tab", "create", "--workspace", parentWorkspace.workspaceId, "--cwd", parentPath, "--no-focus"], signal, 10_000),
-  );
-}
-
-async function herdrResourceExists(pi: ExtensionAPI, args: string[], signal: ExecSignal): Promise<boolean> {
-  const result = await pi.exec("herdr", args, { signal, timeout: 10_000 });
-  return result.code === 0;
 }
 
 async function scheduleSessionCleanup(

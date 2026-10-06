@@ -4,6 +4,17 @@ vim.opt.relativenumber = true
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
 vim.opt.softtabstop = 4
+vim.opt.autoread = true
+vim.opt.clipboard = "unnamedplus"
+
+vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold", "InsertLeave" }, {
+  group = vim.api.nvim_create_augroup("ReloadExternalChanges", { clear = true }),
+  callback = function()
+    if vim.fn.getcmdwintype() == "" and vim.api.nvim_get_mode().mode == "n" then
+      vim.cmd("checktime")
+    end
+  end,
+})
 
 -- go-installed tools (gopls, golangci-lint)
 vim.env.PATH = vim.fn.expand("~/go/bin") .. ":" .. vim.env.PATH
@@ -55,6 +66,8 @@ end
 vim.g.mapleader = " "
 vim.g.maplocalleader = "\\"
 
+require("pi_bridge").setup()
+
 vim.keymap.set({ "n", "i", "v", "s", "x" }, "<C-s>", "<cmd>w<cr><esc>", { desc = "Save file" })
 
 -- Bootstrap lazy.nvim
@@ -69,6 +82,26 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
+  {
+    "folke/which-key.nvim",
+    event = "VeryLazy",
+    opts = {
+      preset = "helix",
+      delay = 0,
+      spec = {
+        { "<leader>a", group = "Pi", mode = { "n", "x" } },
+        { "<leader>g", group = "Git" },
+        { "<leader>s", group = "Search" },
+      },
+    },
+    keys = {
+      {
+        "<leader>?",
+        function() require("which-key").show({ global = false }) end,
+        desc = "Buffer-local keymaps",
+      },
+    },
+  },
   {
     "ayu-theme/ayu-vim",
     lazy = false,
@@ -120,25 +153,14 @@ require("lazy").setup({
       })
       vim.lsp.enable("gopls")
 
-      -- basedpyright lives in each project's venv (uv add --group dev
-      -- basedpyright django-types), not on the system: run the venv's copy
-      -- and point analysis at the venv's python so project deps resolve.
+      -- Global language server; project Python is used only for import resolution.
       vim.lsp.config("basedpyright", {
         settings = {
           basedpyright = {
-            -- default is basedpyright's "recommended" (near-strict): it floods
-            -- untyped Django code with reportUnknown* warnings. "standard"
-            -- matches upstream pyright defaults: real errors, completions,
-            -- go-to-definition, without the noise.
-            analysis = { typeCheckingMode = "standard" },
+            analysis = { typeCheckingMode = "off" },
           },
         },
-        cmd = function(dispatchers, config)
-          local root = config and config.root_dir or vim.fn.getcwd()
-          local venv = vim.fs.joinpath(root, ".venv", "bin", "basedpyright-langserver")
-          local bin = vim.uv.fs_stat(venv) and venv or "basedpyright-langserver"
-          return vim.lsp.rpc.start({ bin, "--stdio" }, dispatchers)
-        end,
+        cmd = { vim.fn.expand("~/.local/bin/basedpyright-langserver"), "--stdio" },
         before_init = function(_, config)
           local root = config.root_dir or vim.fn.getcwd()
           local python = vim.fs.joinpath(root, ".venv", "bin", "python")
@@ -178,6 +200,28 @@ require("lazy").setup({
     "echasnovski/mini.pairs",
     event = "InsertEnter",
     opts = {},
+  },
+  {
+    "sindrets/diffview.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    keys = {
+      { "<leader>gv", "<cmd>DiffviewOpen<cr>", desc = "Git Diff View" },
+      { "<leader>gV", "<cmd>DiffviewOpen -- %<cr>", desc = "Git Diff Current File" },
+      { "<leader>gq", "<cmd>DiffviewClose<cr>", desc = "Close Git Diff View" },
+    },
+  },
+  {
+    "NeogitOrg/neogit",
+    cmd = "Neogit",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      "sindrets/diffview.nvim",
+    },
+    opts = {
+      integrations = {
+        diffview = true,
+      },
+    },
   },
   {
     "folke/snacks.nvim",
@@ -232,17 +276,27 @@ require("lazy").setup({
           { section = "startup" },
         },
       },
-      picker = { enabled = true },
-      lazygit = {
-        win = {
-          keys = {
-            toggle_lazygit = { "<leader>gg", function(self) self:hide() end, mode = "t", desc = "Close Lazygit" },
+      picker = {
+        enabled = true,
+        sources = {
+          projects = {
+            confirm = function(picker, item)
+              if not item then return end
+              picker:close()
+              vim.fn.chdir(item.file)
+              vim.cmd("enew")
+              vim.cmd("Neotree")
+            end,
           },
         },
       },
     },
     keys = {
-      { "<leader>gg", function() Snacks.lazygit() end, desc = "Lazygit" },
+      { "<leader>gg", function() Snacks.lazygit() end, mode = "n", desc = "Lazygit" },
+      { "<leader>p", function() Snacks.picker.projects() end, desc = "Projects" },
+      { "<leader><space>", function() Snacks.picker.smart() end, desc = "Smart Find Files" },
+      { "<leader>/", function() Snacks.picker.grep() end, desc = "Grep" },
+      { "<leader>sk", function() Snacks.picker.keymaps() end, desc = "Search Keymaps" },
     },
   },
 }, {

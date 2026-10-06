@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Container, Markdown, Text } from "@earendil-works/pi-tui";
+import { copyToClipboard, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Container, Markdown, Text, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 type MarkdownToken = {
@@ -26,9 +26,108 @@ type RenderToken = (
   styleContext?: unknown,
 ) => string[];
 
+type CodeRegion = {
+  start: number;
+  end: number;
+  code: string;
+};
+
+type CopyState = {
+  notify?: (message: string, level: "info" | "error") => void;
+};
+
 const patchFlag = Symbol.for("pi.clean-markdown.patched");
 const supportedMimeTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 const maxImageBytes = 15 * 1024 * 1024;
+const copyPatchFlag = Symbol.for("pi.better-tui.copy-patched");
+const codeRegionsKey = Symbol.for("pi.better-tui.code-regions");
+const copyStateKey = Symbol.for("pi.better-tui.copy-state");
+const copyState = ((globalThis as Record<symbol, unknown>)[copyStateKey] ??= {}) as CopyState;
+
+function stripAnsi(text: string) {
+  return text
+    .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+    .replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, "");
+}
+
+function extractCodeBlocks(markdown: string) {
+  const blocks: string[] = [];
+  const lines = markdown.split("\n");
+  let marker: string | undefined;
+  let code: string[] = [];
+
+  for (const line of lines) {
+    if (!marker) {
+      const opening = line.match(/^\s*(`{3,}|~{3,})/);
+      if (!opening) continue;
+      marker = opening[1];
+      code = [];
+      continue;
+    }
+
+    if (new RegExp(`^\\s*${marker[0]}{${marker.length},}\\s*$`).test(line)) {
+      blocks.push(code.join("\n"));
+      marker = undefined;
+      code = [];
+      continue;
+    }
+
+    code.push(line);
+  }
+
+  return blocks;
+}
+
+function installCodeCopyPatch(prototype: {
+  render: (width: number) => string[];
+  handleMouse?: (event: TuiMouseEvent) => TuiMouseEventResult | undefined;
+  [key: symbol]: unknown;
+}) {
+  if (prototype[copyPatchFlag]) return;
+
+  const render = prototype.render;
+  const handleMouse = prototype.handleMouse;
+
+  prototype.render = function (this: { text?: string; [key: symbol]: unknown }, width) {
+    const lines = render.call(this, width);
+    const blocks = extractCodeBlocks(this.text ?? "");
+    const regions: CodeRegion[] = [];
+    let blockIndex = 0;
+    let start: number | undefined;
+
+    for (let index = 0; index < lines.length && blockIndex < blocks.length; index++) {
+      const line = stripAnsi(lines[index]).trim();
+      if (start === undefined && line.startsWith("╭─") && !line.includes("🖼")) {
+        start = index;
+      } else if (start !== undefined && line === "╰─") {
+        regions.push({ start, end: index, code: blocks[blockIndex] });
+        blockIndex++;
+        start = undefined;
+      }
+    }
+
+    this[codeRegionsKey] = regions;
+    return lines;
+  };
+
+  prototype.handleMouse = function (this: { [key: symbol]: unknown }, event) {
+    if (event.type === "click" && event.button === "left") {
+      const region = ((this[codeRegionsKey] as CodeRegion[] | undefined) ?? []).find(
+        (candidate) => event.y >= candidate.start && event.y <= candidate.end,
+      );
+      if (region) {
+        void copyToClipboard(region.code)
+          .then(() => copyState.notify?.("Copied code block", "info"))
+          .catch(() => copyState.notify?.("Could not copy code block", "error"));
+        return { handled: true };
+      }
+    }
+
+    return handleMouse?.call(this, event);
+  };
+
+  prototype[copyPatchFlag] = true;
+}
 
 async function loadPicture(source: string, cwd: string, signal?: AbortSignal) {
   if (/^https?:\/\//i.test(source)) {
@@ -103,6 +202,14 @@ function renderImageCards(markdown: string) {
 }
 
 export default function (pi: ExtensionAPI) {
+  pi.on("session_start", (_event, ctx) => {
+    copyState.notify = (message, level) => ctx.ui.notify(message, level);
+  });
+
+  pi.on("session_shutdown", () => {
+    copyState.notify = undefined;
+  });
+
   pi.registerMarkdownTransformer((markdown) => renderImageCards(markdown));
 
   pi.registerTool({
@@ -146,9 +253,13 @@ export default function (pi: ExtensionAPI) {
   });
 
   const prototype = Markdown.prototype as unknown as {
+    render: (width: number) => string[];
     renderToken: RenderToken;
+    handleMouse?: (event: TuiMouseEvent) => TuiMouseEventResult | undefined;
     [key: symbol]: unknown;
   };
+
+  installCodeCopyPatch(prototype);
 
   if (prototype[patchFlag]) return;
 

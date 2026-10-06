@@ -112,10 +112,15 @@ export function parseGitWorktreePorcelain(raw: string): GitWorktree[] {
     .filter((entry) => entry.path);
 }
 
+export function mainCheckout(worktrees: GitWorktree[]): GitWorktree {
+  const parent = worktrees[0];
+  if (!parent || parent.bare) throw new Error("The repository has no main working checkout");
+  return parent;
+}
+
 export function parentCheckout(worktrees: GitWorktree[], currentPath: string): GitWorktree {
-  const parent = worktrees.find((entry) => !entry.bare && entry.path !== currentPath && !entry.path.includes("/.herdr/worktrees/"))
-    ?? worktrees.find((entry) => !entry.bare && entry.path !== currentPath);
-  if (!parent) throw new Error("Could not identify the repository's parent checkout");
+  const parent = mainCheckout(worktrees);
+  if (parent.path === currentPath) throw new Error("Already in the repository's main checkout; refusing to merge another worktree as the parent");
   return parent;
 }
 
