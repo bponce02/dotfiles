@@ -203,3 +203,5 @@ for i, name in ipairs(order) do
   vim.g["terminal_color_" .. (i - 1)] = (term.normal or {})[name]
   vim.g["terminal_color_" .. (i + 7)] = (term.bright or {})[name]
 end
+
+require("zed_look").apply()

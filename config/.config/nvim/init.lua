@@ -1,6 +1,18 @@
 vim.opt.termguicolors = true
 vim.opt.number = true
-vim.opt.relativenumber = true
+vim.opt.relativenumber = false
+vim.opt.cursorline = true
+vim.opt.wrap = false
+vim.opt.signcolumn = "yes:1"
+vim.opt.numberwidth = 4
+vim.opt.laststatus = 3
+vim.opt.showmode = false
+vim.opt.mouse = "a"
+vim.opt.scrolloff = 5
+vim.opt.splitright = true
+vim.opt.splitbelow = true
+vim.opt.fillchars = { eob = " ", vert = "│" }
+vim.opt.statusline = "  %f %m%=%l:%c   %y   %{&fileencoding != '' ? &fileencoding : &encoding}  "
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
 vim.opt.softtabstop = 4
@@ -20,7 +32,9 @@ vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold", "InsertLe
 vim.env.PATH = vim.fn.expand("~/go/bin") .. ":" .. vim.env.PATH
 
 vim.diagnostic.config({
-  virtual_text = true,
+  virtual_text = false,
+  underline = true,
+  float = { border = "rounded" },
   severity_sort = true,
 })
 
@@ -52,6 +66,7 @@ for dir, file in pairs({
   ["~/.config/ghostty/themes"] = "noctalia",
   ["~/.local/state/noctalia"] = "settings.toml",
   ["~/Documents/GitHub/dotfiles/config/.config/nvim/colors"] = "noctalia.lua",
+  ["~/.config/zed/themes"] = "noctalia.json",
 }) do
   local w = vim.uv.new_fs_event()
   if w then
@@ -69,6 +84,30 @@ vim.g.maplocalleader = "\\"
 require("pi_bridge").setup()
 
 vim.keymap.set({ "n", "i", "v", "s", "x" }, "<C-s>", "<cmd>w<cr><esc>", { desc = "Save file" })
+
+local function setup_lsp_navigation(buf)
+  for _, mapping in ipairs({
+    { "gd", vim.lsp.buf.definition, "Go to definition" },
+    { "gI", vim.lsp.buf.implementation, "Go to implementation" },
+    { "gr", vim.lsp.buf.references, "Find references" },
+    { "K", vim.lsp.buf.hover, "Show documentation" },
+  }) do
+    vim.keymap.set("n", mapping[1], mapping[2], { buffer = buf, desc = mapping[3] })
+  end
+end
+
+vim.api.nvim_create_autocmd("LspAttach", {
+  group = vim.api.nvim_create_augroup("LspNavigation", { clear = true }),
+  callback = function(event)
+    setup_lsp_navigation(event.buf)
+  end,
+})
+
+for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+  if #vim.lsp.get_clients({ bufnr = buf }) > 0 then
+    setup_lsp_navigation(buf)
+  end
+end
 
 -- Bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
@@ -89,6 +128,7 @@ require("lazy").setup({
       preset = "helix",
       delay = 0,
       spec = {
+        { "g", group = "Go to" },
         { "<leader>a", group = "Pi", mode = { "n", "x" } },
         { "<leader>g", group = "Git" },
         { "<leader>s", group = "Search" },
@@ -109,6 +149,64 @@ require("lazy").setup({
     config = function()
       apply_theme()
     end,
+  },
+  {
+    "akinsho/bufferline.nvim",
+    version = "*",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    opts = {
+      options = {
+        separator_style = "thin",
+        show_buffer_close_icons = false,
+        show_close_icon = false,
+        always_show_bufferline = true,
+        diagnostics = false,
+        indicator = { style = "none" },
+        offsets = { { filetype = "neo-tree", text = "Project", text_align = "left", separator = true } },
+      },
+    },
+  },
+  {
+    "nvim-treesitter/nvim-treesitter",
+    lazy = false,
+    build = ":TSUpdate",
+    config = function()
+      require("nvim-treesitter").setup({})
+      vim.api.nvim_create_autocmd("FileType", {
+        group = vim.api.nvim_create_augroup("EditorTreesitter", { clear = true }),
+        callback = function(event)
+          pcall(vim.treesitter.start, event.buf)
+        end,
+      })
+    end,
+  },
+  {
+    "saghen/blink.cmp",
+    version = "1.*",
+    dependencies = { "rafamadriz/friendly-snippets" },
+    opts = {
+      keymap = { preset = "default" },
+      completion = {
+        documentation = { auto_show = true },
+      },
+      sources = { default = { "lsp", "path", "snippets", "buffer" } },
+    },
+  },
+  {
+    "windwp/nvim-ts-autotag",
+    dependencies = { "nvim-treesitter/nvim-treesitter" },
+    opts = {},
+  },
+  {
+    "Bekaboo/dropbar.nvim",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    opts = {
+      sources = {
+        treesitter = {
+          valid_types = { "function", "method", "class", "interface", "struct", "enum", "type", "namespace", "module" },
+        },
+      },
+    },
   },
   {
     "nvim-neo-tree/neo-tree.nvim",
@@ -134,7 +232,25 @@ require("lazy").setup({
       },
     },
     opts = {
+      window = { width = 28 },
+      enable_diagnostics = false,
+      default_component_configs = {
+        indent = { indent_size = 2, padding = 0, with_markers = true },
+        icon = { folder_closed = "", folder_open = "" },
+        git_status = { symbols = { added = "", modified = "", deleted = "", renamed = "", untracked = "", ignored = "", unstaged = "", staged = "", conflict = "!" } },
+        name = { trailing_slash = false },
+      },
       filesystem = {
+        components = {
+          name = function(config, node, state)
+            local item = require("neo-tree.sources.common.components").name(config, node, state)
+            if node:get_depth() == 1 then
+              item.text = vim.fn.fnamemodify(state.path, ":t")
+            end
+            return item
+          end,
+        },
+        filtered_items = { hide_dotfiles = false, hide_gitignored = false, never_show = { ".git" } },
         follow_current_file = { enabled = true },
         use_libuv_file_watcher = true,
       },
@@ -152,6 +268,8 @@ require("lazy").setup({
         },
       })
       vim.lsp.enable("gopls")
+	  vim.lsp.enable("svelte")
+	  vim.lsp.enable("ts_ls")
 
       -- Global language server; project Python is used only for import resolution.
       vim.lsp.config("basedpyright", {
