@@ -13,3 +13,6 @@ PS1='[\u@\h \W]\$ '
 export PATH="/home/bponce/.local/bin:$PATH"
 
 if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init bash)"; fi
+
+# Vite+ bin (https://viteplus.dev)
+. "/home/bponce/.config/vite-plus/env"

@@ -1,6 +1,59 @@
 // Zed tasks — see https://zed.dev/docs/tasks
 [
   {
+    "label": "pi: ask about selection",
+    "command": "$HOME/.local/bin/pi-zed",
+    "args": ["add"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": {
+      "ZED_FILE": "${ZED_FILE:}",
+      "ZED_ROW": "${ZED_ROW:1}",
+      "ZED_SELECTED_TEXT": "${ZED_SELECTED_TEXT:}"
+    },
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "on_success"
+  },
+  {
+    "label": "pi: review questions",
+    "command": "$HOME/.local/bin/pi-zed",
+    "args": ["list"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "on_success"
+  },
+  {
+    "label": "pi: send questions",
+    "command": "$HOME/.local/bin/pi-zed",
+    "args": ["send"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "on_success"
+  },
+  {
+    "label": "herdr",
+    "command": "herdr",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "on_success"
+  },
+  {
+    "label": "git: lazygit",
+    "command": "lazygit",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "on_success"
+  },
+  {
     // Stage everything, commit with a message typed at the prompt, push.
     // `read` is what supplies the prompt (Zed tasks have no input mechanism of
     // their own); it runs in bash, the login shell. The `&&` chain stops before

@@ -1,3 +1,6 @@
+vim.api.nvim_exec_autocmds("User", { pattern = "VeryLazy" })
+require("lazy").load({ plugins = { "bufferline.nvim", "dropbar.nvim", "nvim-lspconfig" } })
+
 assert(vim.g.colors_name == "noctalia")
 assert(vim.o.number and not vim.o.relativenumber)
 assert(not vim.o.wrap and vim.o.cursorline)

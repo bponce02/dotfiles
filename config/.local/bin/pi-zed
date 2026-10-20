@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import socket
+import subprocess
+import sys
+import uuid
+
+LIMIT = 4 * 1024 * 1024
+
+
+def private_dir(path):
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = path.lstat()
+    if path.is_symlink() or not path.is_dir() or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise RuntimeError(f"Directory must be private and owned by you: {path}")
+    return path
+
+
+def project():
+    return str(Path(os.environ.get("ZED_WORKTREE_ROOT") or os.getcwd()).resolve())
+
+
+def project_key(root):
+    return hashlib.sha256(root.encode()).hexdigest()[:24]
+
+
+def instances():
+    try:
+        windows = json.loads(subprocess.check_output(["niri", "msg", "-j", "windows"], timeout=5))
+    except (OSError, subprocess.SubprocessError) as error:
+        raise RuntimeError("Zed window discovery requires a running Niri session.") from error
+    result = []
+    for window in windows:
+        if window.get("app_id") not in {"dev.zed.Zed", "dev.zed.Zed-Preview", "dev.zed.Zed-Nightly"}:
+            continue
+        pid = window.get("pid")
+        try:
+            stat = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+            identity = f"{os.environ.get('NIRI_SOCKET', '')}:{pid}:{stat[19]}:{window['id']}"
+            result.append({"id": project_key(identity), "window": window["id"], "pid": pid,
+                           "focused": window.get("is_focused", False),
+                           "label": f"Zed window {window['id']} · {window['title']}"})
+        except (OSError, IndexError):
+            continue
+    return result
+
+
+def current_instance():
+    ancestors = set()
+    pid = os.getpid()
+    while pid > 1 and pid not in ancestors:
+        ancestors.add(pid)
+        try:
+            pid = int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            break
+    candidates = [item for item in instances() if item["pid"] in ancestors]
+    focused = [item for item in candidates if item["focused"]]
+    if len(focused) == 1:
+        return focused[0]["id"]
+    if len(candidates) == 1:
+        return candidates[0]["id"]
+    raise RuntimeError("Cannot identify the sending Zed window. Run Space as from the focused Zed window.")
+
+
+def snapshot():
+    path = os.environ.get("ZED_FILE", "")
+    if not path:
+        raise RuntimeError("Open a file or select code before asking Pi.")
+    row = int(os.environ.get("ZED_ROW") or "1")
+    selected = os.environ.get("ZED_SELECTED_TEXT", "")
+    if selected:
+        text, source = selected, "editor selection snapshot"
+    else:
+        lines = Path(path).read_text().splitlines()
+        if row < 1 or row > len(lines):
+            raise RuntimeError("Cursor line is unavailable on disk; select the code instead.")
+        text, source = lines[row - 1], "saved file line (select text to include unsaved edits)"
+    if len(text.encode()) > LIMIT // 2:
+        raise RuntimeError("Selection is too large; select less code.")
+    return {"id": str(uuid.uuid4()), "path": path, "cursor_row": row, "text": text, "source": source}
+
+
+def read_queue(path):
+    return json.loads(path.read_text()) if path.exists() else []
+
+
+def save_queue(path, queue):
+    temp = path.with_suffix(".tmp")
+    temp.write_text(json.dumps(queue, ensure_ascii=False))
+    temp.replace(path)
+
+
+def deliver(root, queue, instance):
+    batch_id = hashlib.sha256(json.dumps([root, queue], sort_keys=True).encode()).hexdigest()
+    payload = json.dumps({"type": "questions", "id": batch_id, "instance": instance, "cwd": root, "targets": queue}).encode() + b"\n"
+    if len(payload) > LIMIT:
+        raise RuntimeError("Batch exceeds 4 MiB. Remove some questions before sending.")
+    directory = private_dir(Path(f"/tmp/pi-zed-{os.getuid()}"))
+    path = directory / f"window-{instance}.sock"
+    with socket.socket(socket.AF_UNIX) as client:
+        client.settimeout(10)
+        try:
+            client.connect(str(path))
+        except (FileNotFoundError, ConnectionRefusedError) as error:
+            raise RuntimeError("Run /zed in the receiving Pi session and select this Zed window.") from error
+        client.sendall(payload)
+        response = b""
+        while b"\n" not in response:
+            chunk = client.recv(4096)
+            if not chunk:
+                raise RuntimeError("Pi disconnected before confirmation. Queue retained; check Pi before retrying.")
+            response += chunk
+            if len(response) > 65536:
+                raise RuntimeError("Invalid response from Pi.")
+        reply = json.loads(response.split(b"\n", 1)[0])
+        if reply.get("type") != "accepted" or reply.get("id") != batch_id:
+            raise RuntimeError(reply.get("error", "Pi did not accept the questions."))
+
+
+def main():
+    os.umask(0o077)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("action", choices=["add", "list", "send", "instances"])
+    args = parser.parse_args()
+    if args.action == "instances":
+        print(json.dumps(instances()))
+        return
+    instance = current_instance() if args.action == "send" else None
+    root = project()
+    state = private_dir(Path.home() / ".local/state/pi-zed")
+    directory = private_dir(state / project_key(root))
+    path = directory / "queue.json"
+    (directory / "project.json").write_text(json.dumps({"cwd": root}))
+    item = None
+    if args.action == "add":
+        item = snapshot()
+        print(f"\nAsk Pi · {item['path']} · cursor line {item['cursor_row']}")
+        print(f"Captured: {item['source']}\n")
+        question = input("Question (blank cancels): ").strip()
+        if not question:
+            return
+        item["question"] = question
+    with (directory / "queue.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        queue = read_queue(path)
+        if args.action == "add":
+            queue.append(item)
+            save_queue(path, queue)
+            print(f"Queued {len(queue)} question(s). Space as sends; Space al reviews.")
+        elif args.action == "list":
+            while queue:
+                print(f"\nQueued questions for {root}:\n")
+                for index, entry in enumerate(queue, 1):
+                    print(f"{index}. {entry['path']} · cursor {entry['cursor_row']}\n   {entry['question']}\n   {entry['text'][:300]!r}\n")
+                choice = input("Remove number, or Enter to finish: ").strip()
+                if not choice:
+                    break
+                if choice.isdigit() and 1 <= int(choice) <= len(queue):
+                    queue.pop(int(choice) - 1)
+                    save_queue(path, queue)
+                else:
+                    print("Choose a listed number.")
+            if not queue:
+                print("No queued questions.")
+        elif not queue:
+            print("No queued questions. Use Space aa first.")
+        else:
+            deliver(root, queue, instance)
+            save_queue(path, [])
+            print("Questions sent. Read the response in your connected Pi session.")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (Exception, KeyboardInterrupt) as error:
+        print(f"\nPi: {error or 'Cancelled'}. Unsent questions are retained.", file=sys.stderr)
+        sys.exit(1)

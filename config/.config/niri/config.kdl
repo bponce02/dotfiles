@@ -124,7 +124,7 @@ output "ASUSTek COMPUTER INC VA24D R7LMQS078138" {
 // https://niri-wm.github.io/niri/Configuration:-Layout
 layout {
     // Set gaps around windows in logical pixels.
-    gaps 16
+    gaps 0
 
     // When to center a column when changing focus, options are:
     // - "never", default behavior, focusing an off-screen column will keep at the left
@@ -169,7 +169,7 @@ layout {
     // You can change how the focus ring looks.
     focus-ring {
         // Uncomment this line to disable the focus ring.
-        // off
+        off
 
         // How many logical pixels the ring extends out from the windows.
         width 4
@@ -208,10 +208,10 @@ layout {
     border {
         // The settings are the same as for the focus ring.
         // If you enable the border, you probably want to disable the focus ring.
-        off
+        on
 
-        width 4
-        active-color "#ffc87f"
+        width 2
+        active-color "#4ade80"
         inactive-color "#505050"
 
         // Color of the border around windows that request your attention.
@@ -679,10 +679,9 @@ binds {
 }
 spawn-at-startup "noctalia"
 window-rule {
-  // Rounded corners for a modern look.
-  geometry-corner-radius 20
+  geometry-corner-radius 0
 
-  // Clips window contents to the rounded corner boundaries.
+  // Clips window contents to the window boundaries.
   clip-to-geometry true
 }
 

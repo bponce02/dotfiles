@@ -7,6 +7,12 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "autosave": "off",
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false,
+    "anthropic_retention": false
+  },
   "buffer_font_weight": 400.0,
   "features": {
     "edit_prediction_provider": "zed",
@@ -14,7 +20,7 @@
   "edit_predictions": {
     "mode": "subtle",
   },
-  "diff_view_style": "unified",
+  "diff_view_style": "split",
   "proxy": "",
   "cli_default_open_behavior": "existing_window",
   "project_panel": {
@@ -26,7 +32,7 @@
   "collaboration_panel": {
     "dock": "left",
   },
-  "disable_ai": false,
+  "disable_ai": true,
   "buffer_line_height": "standard",
   "buffer_font_family": ".ZedMono",
   "git_panel": {
