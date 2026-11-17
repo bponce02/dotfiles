@@ -3,7 +3,8 @@
 
 [theme]
 mode = "dark"
-source = "wallpaper"
+source = "community"
+community_palette = "Ayu Blue"
 wallpaper_scheme = "m3-content"
 
 [theme.templates]
