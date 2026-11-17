@@ -111,12 +111,17 @@ output "ASUSTek COMPUTER INC VA24D M5LMQS098992" {
     position x=0 y=0
 }
 
-output "ASUSTek COMPUTER INC ASUS VZ27EHE N9LMTJ009256" {
+output "ASUSTek COMPUTER INC VA24D M5LMQS099263" {
     position x=1920 y=0
 }
 
 output "ASUSTek COMPUTER INC VA24D R7LMQS078138" {
     position x=3840 y=0
+}
+
+output "eDP-1" {
+    scale 1.25
+    position x=5760 y=0
 }
 
 // Settings that influence how windows are positioned and sized.
@@ -648,16 +653,13 @@ binds {
     // Mod+Space       { switch-layout "next"; }
     // Mod+Shift+Space { switch-layout "prev"; }
 
+    // Capture without opening an editor; Super+Shift+D edits the latest screenshot.
     Print { screenshot; }
     Ctrl+Print { screenshot-screen; }
     Alt+Print { screenshot-window; }
     Super+Shift+S { screenshot; }
-    // Select a region, then annotate it (arrows/text/blur) in satty.
-    // Saves to ~/Pictures/Screenshots and copies the result to the clipboard.
-    Super+Shift+A hotkey-overlay-title="Screenshot + annotate: satty" { spawn-sh r#"grim -g "$(slurp)" - | satty --filename - --output-filename "$HOME/Pictures/Screenshots/Screenshot from $(date '+%Y-%m-%d %H-%M-%S').png" --early-exit --copy-command wl-copy"#; }
-    // Open the most recent screenshot in satty for quick edits.
-    // Saves the annotated copy back to ~/Pictures/Screenshots and copies it to the clipboard.
-    Super+Shift+D hotkey-overlay-title="Annotate last screenshot: satty" { spawn-sh r#"ls -t "$HOME/Pictures/Screenshots/"*.png | head -1 | xargs -d '\n' -I{} satty --filename {} --output-filename "$HOME/Pictures/Screenshots/Screenshot from $(date '+%Y-%m-%d %H-%M-%S') edited.png" --early-exit --copy-command wl-copy"#; }
+    Super+Shift+A hotkey-overlay-title="Screenshot region" { screenshot; }
+    Super+Shift+D hotkey-overlay-title="Annotate last screenshot: ScreenshotTool" { spawn "niri-screenshot-tool" "last"; }
 
     // Applications such as remote-desktop clients and software KVM switches may
     // request that niri stops processing the keyboard shortcuts defined here

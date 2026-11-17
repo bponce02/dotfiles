@@ -20,7 +20,7 @@
   "edit_predictions": {
     "mode": "subtle",
   },
-  "diff_view_style": "split",
+  "diff_view_style": "unified",
   "proxy": "",
   "cli_default_open_behavior": "existing_window",
   "project_panel": {
@@ -32,10 +32,11 @@
   "collaboration_panel": {
     "dock": "left",
   },
-  "disable_ai": true,
+  "disable_ai": false,
   "buffer_line_height": "standard",
   "buffer_font_family": ".ZedMono",
   "git_panel": {
+    "group_by": "none",
     "dock": "left",
     "tree_view": true,
   },

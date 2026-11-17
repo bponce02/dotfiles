@@ -26,6 +26,7 @@
       "ctrl-s": "workspace::Save",
       "space g s": "editor::ToggleSplitDiff",
       "space t t": "workspace::NewCenterTerminal",
+      "space t s": ["task::Spawn", { "task_name": "ssh: lazyssh", "reveal_target": "center" }],
       "space g v": "git::Diff",
       "space g shift-v": "git::OpenFileDiff"
     }
@@ -37,14 +38,29 @@
     }
   },
   {
-    "context": "ProjectPanel",
+    "context": "Editor && (vim_mode == normal || vim_mode == insert)",
     "bindings": {
+      "ctrl-c": "editor::Copy",
+      "ctrl-v": "editor::Paste"
+    }
+  },
+  {
+    "context": "ProjectPanel && not_editing",
+    "bindings": {
+      "space": null,
+      "enter": "project_panel::Open",
+      "h": "project_panel::CollapseSelectedEntry",
+      "l": "project_panel::ExpandSelectedEntry",
+      "a": "project_panel::NewFile",
+      "r": "project_panel::Rename",
+      "d": ["project_panel::Delete", { "skip_prompt": false }],
       "space p": "projects::OpenRecent",
       "space space": "file_finder::Toggle",
       "space /": "pane::DeploySearch",
       "space e": "project_panel::ToggleFocus",
       "space g g": ["task::Spawn", { "task_name": "git: lazygit", "reveal_target": "center" }],
       "space t t": "workspace::NewCenterTerminal",
+      "space t s": ["task::Spawn", { "task_name": "ssh: lazyssh", "reveal_target": "center" }],
       "space g v": "git::Diff",
       "space g shift-v": "git::OpenFileDiff"
     }

@@ -1,4 +1,4 @@
-# Zed → existing Pi session
+# Zed → project-aware Pi routing
 
 ## Setup
 
@@ -11,9 +11,19 @@ The dotfiles contain:
 
 Link the helper to `~/.local/bin/pi-zed` and make it executable. Link the extension to `~/.pi/agent/extensions/zed.ts`. These links are installed on this machine.
 
-Reload Pi with `/reload`, then run `/zed` and select a live Zed window. No prior bridge task is needed. The picker shows Niri window IDs and current titles, not saved project paths. Switching projects in that window keeps the connection; Pi's working directory is unchanged. `/zed /project/path` is no longer supported. A second Pi session cannot silently take over a window. `/zed disconnect` detaches it; Pi shutdown/reload also disconnects it.
+Reload **each already-open Pi session** with `/reload` to register it with the new router. Newly started sessions register automatically. Run `/zed` in the Pi pane that should receive prompts and select a live Zed window. This enables the window and binds all its sends exclusively to this Pi session, with an exact project-directory safety check, replacing any previous destination. Running `/zed` in another pane transfers that project's destination to that pane.
 
-Window discovery currently requires Linux and Niri. Identity includes the compositor socket, Zed PID/process start time, and Niri window ID, so titles and project paths can change without changing the connection. Closing/reopening a window requires selecting the new window. The sending task checks its process ancestors against live Zed windows and selects the focused matching window (or the sole matching window). If multiple windows match and none is focused, sending fails rather than guessing. Invoke send from the intended focused Zed window; background automation is not supported.
+Routing is explicit and exclusive per Zed window. Run `/zed` in the receiving Pi pane and select that window. This replaces its destination across all projects: only that exact live registration may receive. Opening another Pi pane never changes the destination. Both sender and receiver check the binding.
+
+The sender never scans for alternatives, chooses a sole matching session, or prompts for a destination. Missing, closed, reloaded, or mismatched destinations fail with the queue retained. Run `/zed` again in the intended pane. Old per-project automatic-router preferences are ignored.
+
+The bound Pi directory must still match the canonical `ZED_WORKTREE_ROOT` exactly. Symlink aliases resolve to the same directory; subdirectories and other Git worktrees do not. Switching projects requires explicit rebinding. Herdr worktree transitions and Pi reloads create new registrations and also require `/zed` again.
+
+Pi's footer shows `Zed routing: Zed window <id> · <title>` for enabled live windows, refreshing every five seconds as titles or windows change. Multiple enabled windows are listed together. The footer shows shared window authorization, not which pane is selected. Run `/zed` in the intended pane to set or replace the destination for its project. No enabled windows and unavailable window discovery have explicit status labels.
+
+`/zed disconnect` asks which live window to disable globally. Pi shutdown/reload does **not** disable the window. Authorization lasts for that Zed window identity while its marker remains in `/tmp`; closing/reopening Zed or clearing temporary state requires `/zed` again. `/zed /project/path` is not supported.
+
+Window discovery requires Linux and Niri. Identity includes the compositor socket, Zed PID/process start time, and Niri window ID. The sender checks its process ancestors against live Zed windows and selects the focused matching window (or sole matching window). Multiple matching windows with none focused fail rather than guessing. Invoke send from the intended focused Zed window; background automation is not supported.
 
 ## Workflow
 
@@ -21,24 +31,26 @@ Window discovery currently requires Linux and Niri. Identity includes the compos
 2. Type a question in the center terminal and press Enter; blank input cancels.
 3. Repeat for additional questions.
 4. `Space al` opens the queue. Enter a number to remove a question or Enter to finish.
-5. `Space as` sends the current project's batch through the window connection. Responses appear in the connected Pi session. After switching projects, the same connection sends that project's queue; older queues remain with their projects.
+5. Run `/zed` in the receiving Pi pane and select the Zed window. `Space as` sends the current project's batch to that session. If its registration has expired, run `/zed` again in the intended pane; there is no fallback. Responses appear there.
 
-Tasks hide after successful completion. Errors leave the terminal visible. Existing Alt+H/L/W shortcuts navigate or close its tab.
+Switching projects/worktrees switches the queue, not the explicit destination; rebind with `/zed` before sending. Older queues remain with their projects. Tasks hide after successful completion; errors leave the terminal visible. Existing Alt+H/L/W shortcuts navigate or close its tab.
 
-Selections capture text, including unsaved edits, when the task launches. Without a selection, the helper reads the saved file at the cursor row; save first or select text when asking about unsaved changes. The cursor row is only a location hint, not a claimed start/end range. Snapshots do not track later edits or renames. Use a real file buffer rather than a virtual diff buffer for initial testing.
+Selections capture text, including unsaved edits, when the task launches. Without a selection, the helper reads the saved file at the cursor row; save first or select text when asking about unsaved changes. The cursor row is only a location hint, not a claimed start/end range. Snapshots do not track later edits or renames. Commit-history and other virtual buffers can be used with text selected. When Zed supplies no file path, the helper captures the selection with an empty path and labels it `historical/virtual selection`; include the file path and commit SHA in your question when needed. With neither a path nor a selection it fails instead of reading a current file. Zed does not expose the historical file path or revision through the normal file task variables. Select within one file at a time. This behavior is covered by helper tests; end-to-end invocation in Zed still requires a user trial.
 
 ## Storage and delivery
 
-Queues are per canonical project path, in `~/.local/state/pi-zed/<project-hash>/queue.json`. They contain selected code and questions; they persist locally until sent or removed. Private directories and files restrict access to the current user. Queue operations use a file lock and atomic replacement.
+Queues are per canonical project path, in `~/.local/state/pi-zed/<project-hash>/queue.json`. They contain selected code and questions and persist until sent or removed. Private directories and files restrict access to the current user. Queue operations use a file lock and atomic replacement.
 
-The extension listens on a private Unix socket at `/tmp/pi-zed-<uid>/window-<instance-hash>.sock`. It validates the window identity, absolute project path, and message shape, limits batches to 4 MiB, and acknowledges accepted messages. The project path travels with each batch instead of determining its destination. Failed sends retain the queue. Retries of an identical project/batch are deduplicated while the connection remains assigned. After Pi reload/restart, check the conversation before retrying an uncertain delivery; deduplication is not durable across sessions. Existing project queues are preserved without migration.
+Each live Pi registration listens on a unique private Unix socket at `/tmp/pi-zed-<uid>/session-<random-token>.sock`. The helper probes these sockets for current directory, session name/ID, PID, and registration token. Dead or unresponsive registrations are ignored, never reassigned or unlinked by the sender. Stale sockets after crashes can be removed after confirming the old process has exited.
 
-If Pi crashes rather than shuts down, a stale socket may remain. An address-in-use error does not automatically delete it, to avoid stealing a live connection. Confirm the old Pi session has exited before removing that window's stale socket.
+Window authorization uses `window-<instance-hash>.enabled` markers in the same private directory. Explicit choices use `route-<instance-hash>.json`. They contain registration tokens, not code. Re-enabling a previously disabled window can reuse a still-live choice.
 
-Selected code is supplied to the model as context. The message requests answers in Pi, not automatic file edits.
+Before delivery the receiver checks the window authorization, registration token, canonical directory, and message shape. This rejects a destination that changes between discovery and delivery. Batches are limited to 4 MiB and acknowledged before clearing the queue. Failed sends retain the queue; ambiguous delivery is never automatically rerouted to another session. Retries of an identical project/batch are deduplicated within a registration. After reload/restart or choosing another destination, check the conversation before retrying uncertain delivery; deduplication is not durable across sessions. Existing project queues are preserved without migration.
+
+Selected code is supplied to the model as context. Each question field is a user request: requests for code or file changes authorize those changes without a separate prompt; explanations and reviews are answered in Pi.
 
 ## Verification
 
-Run `node tests/zed-pi-bridge.mjs`. Set `PI_JITI` to a jiti installation if Pi is installed elsewhere. The test mocks the Pi API and Niri window listing but exercises the real Unix socket and Python helper: live-window selection, project switching without reconnecting, separate-window isolation, ambiguous-window rejection, selection capture, saved-line fallback, queue removal, delivery, repeated-batch suppression, window/payload validation, shutdown, and failed-send retention.
+Run `node tests/zed-pi-bridge.mjs`. Set `PI_JITI` to a jiti installation if Pi is installed elsewhere. Tests mock the Pi API and Niri listing but exercise real Unix sockets and the Python helper: exact project/worktree routing, no-match retention, exclusive explicit binding, rejection of replaced receivers, no-fallback behavior, session relocation/replacement, canonical paths, window isolation, selection capture, saved-line fallback, queue removal, delivery, repeated-batch suppression, validation, rendering, and shutdown.
 
-End-to-end Zed task invocation and delivery into the user's Pi conversation require `/reload`, `/zed`, and a user trial. `pi-zed instances` lists the live discovery result for diagnostics.
+End-to-end Zed task invocation and delivery into the user's Pi conversation still require `/reload`, `/zed`, and a user trial. `pi-zed instances` lists live windows for diagnostics.

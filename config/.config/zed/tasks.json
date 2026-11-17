@@ -45,6 +45,15 @@
     "hide": "on_success"
   },
   {
+    "label": "ssh: lazyssh",
+    "command": "$HOME/.local/bin/lazyssh",
+    "cwd": "$HOME",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "on_success"
+  },
+  {
     "label": "git: lazygit",
     "command": "lazygit",
     "cwd": "$ZED_WORKTREE_ROOT",

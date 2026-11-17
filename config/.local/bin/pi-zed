@@ -70,13 +70,15 @@ def current_instance():
 
 def snapshot():
     path = os.environ.get("ZED_FILE", "")
-    if not path:
-        raise RuntimeError("Open a file or select code before asking Pi.")
     row = int(os.environ.get("ZED_ROW") or "1")
     selected = os.environ.get("ZED_SELECTED_TEXT", "")
     if selected:
-        text, source = selected, "editor selection snapshot"
+        text = selected
+        source = ("editor selection snapshot" if path else
+                  "historical/virtual selection snapshot (file path and commit unknown; not current disk contents)")
     else:
+        if not path:
+            raise RuntimeError("Select text in the history/virtual buffer before asking Pi; no file path is available.")
         lines = Path(path).read_text().splitlines()
         if row < 1 or row > len(lines):
             raise RuntimeError("Cursor line is unavailable on disk; select the code instead.")
@@ -96,20 +98,11 @@ def save_queue(path, queue):
     temp.replace(path)
 
 
-def deliver(root, queue, instance):
-    batch_id = hashlib.sha256(json.dumps([root, queue], sort_keys=True).encode()).hexdigest()
-    payload = json.dumps({"type": "questions", "id": batch_id, "instance": instance, "cwd": root, "targets": queue}).encode() + b"\n"
-    if len(payload) > LIMIT:
-        raise RuntimeError("Batch exceeds 4 MiB. Remove some questions before sending.")
-    directory = private_dir(Path(f"/tmp/pi-zed-{os.getuid()}"))
-    path = directory / f"window-{instance}.sock"
+def request(path, payload, timeout=10):
     with socket.socket(socket.AF_UNIX) as client:
-        client.settimeout(10)
-        try:
-            client.connect(str(path))
-        except (FileNotFoundError, ConnectionRefusedError) as error:
-            raise RuntimeError("Run /zed in the receiving Pi session and select this Zed window.") from error
-        client.sendall(payload)
+        client.settimeout(timeout)
+        client.connect(str(path))
+        client.sendall(json.dumps(payload).encode() + b"\n")
         response = b""
         while b"\n" not in response:
             chunk = client.recv(4096)
@@ -118,9 +111,43 @@ def deliver(root, queue, instance):
             response += chunk
             if len(response) > 65536:
                 raise RuntimeError("Invalid response from Pi.")
-        reply = json.loads(response.split(b"\n", 1)[0])
-        if reply.get("type") != "accepted" or reply.get("id") != batch_id:
-            raise RuntimeError(reply.get("error", "Pi did not accept the questions."))
+        return json.loads(response.split(b"\n", 1)[0])
+
+
+def choose_session(directory, root, instance):
+    route = directory / f"route-{instance}.json"
+    try:
+        binding = json.loads(route.read_text())
+        token = binding["token"]
+        if not isinstance(token, str) or str(uuid.UUID(token)) != token:
+            raise ValueError("Invalid token")
+    except (OSError, ValueError, KeyError, TypeError):
+        raise RuntimeError("No explicit Pi destination. Run /zed in the Pi session that should receive.")
+    if binding.get("cwd") != root:
+        raise RuntimeError("Bound Pi session is for another project/worktree. Run /zed in the intended session.")
+    path = directory / f"session-{token}.sock"
+    try:
+        info = request(path, {"type": "info"}, timeout=1)
+    except (OSError, ValueError, RuntimeError) as error:
+        raise RuntimeError("Bound Pi session is unavailable. Run /zed again; no fallback will be used.") from error
+    if info.get("type") != "session" or info.get("token") != token or info.get("cwd") != root:
+        raise RuntimeError("Bound Pi session no longer matches. Run /zed again; no fallback will be used.")
+    return path, info
+
+
+def deliver(root, queue, instance):
+    directory = private_dir(Path(f"/tmp/pi-zed-{os.getuid()}"))
+    if not (directory / f"window-{instance}.enabled").exists():
+        raise RuntimeError("Run /zed once in Pi and select this Zed window to enable routing.")
+    path, info = choose_session(directory, root, instance)
+    batch_id = hashlib.sha256(json.dumps([root, queue], sort_keys=True).encode()).hexdigest()
+    payload = {"type": "questions", "id": batch_id, "instance": instance,
+               "token": info["token"], "cwd": root, "targets": queue}
+    if len(json.dumps(payload).encode()) + 1 > LIMIT:
+        raise RuntimeError("Batch exceeds 4 MiB. Remove some questions before sending.")
+    reply = request(path, payload)
+    if reply.get("type") != "accepted" or reply.get("id") != batch_id:
+        raise RuntimeError(reply.get("error", "Pi did not accept the questions."))
 
 
 def main():
@@ -140,8 +167,10 @@ def main():
     item = None
     if args.action == "add":
         item = snapshot()
-        print(f"\nAsk Pi · {item['path']} · cursor line {item['cursor_row']}")
+        print(f"\nAsk Pi · {item['path'] or '[historical/virtual selection]'} · cursor line {item['cursor_row']}")
         print(f"Captured: {item['source']}\n")
+        if not item["path"]:
+            print("Include the file path and commit SHA in your question if needed.\n")
         question = input("Question (blank cancels): ").strip()
         if not question:
             return
@@ -157,7 +186,7 @@ def main():
             while queue:
                 print(f"\nQueued questions for {root}:\n")
                 for index, entry in enumerate(queue, 1):
-                    print(f"{index}. {entry['path']} · cursor {entry['cursor_row']}\n   {entry['question']}\n   {entry['text'][:300]!r}\n")
+                    print(f"{index}. {entry['path'] or '[historical/virtual selection]'} · cursor {entry['cursor_row']}\n   {entry['question']}\n   {entry['text'][:300]!r}\n")
                 choice = input("Remove number, or Enter to finish: ").strip()
                 if not choice:
                     break
@@ -173,7 +202,7 @@ def main():
         else:
             deliver(root, queue, instance)
             save_queue(path, [])
-            print("Questions sent. Read the response in your connected Pi session.")
+            print("Questions sent. Read the response in this project\'s Pi session.")
 
 
 if __name__ == "__main__":

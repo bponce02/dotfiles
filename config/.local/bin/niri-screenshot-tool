@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+
+import argparse
+import datetime
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+
+
+PNG_END = b"\x00\x00\x00\x00IEND\xaeB`\x82"
+
+
+def complete_png(path):
+    try:
+        with path.open("rb") as image:
+            if image.read(8) != b"\x89PNG\r\n\x1a\n":
+                return False
+            image.seek(-12, os.SEEK_END)
+            return image.read() == PNG_END
+    except (OSError, ValueError):
+        return False
+
+
+def wait_for_capture(path, timeout):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if complete_png(path):
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def launch(binary, args):
+    state = pathlib.Path(os.environ.get("XDG_STATE_HOME", pathlib.Path.home() / ".local/state"))
+    log = state / "screenshot-tool/launcher.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("ab") as output:
+        subprocess.Popen(
+            [str(binary), *args],
+            stdin=subprocess.DEVNULL,
+            stdout=output,
+            stderr=output,
+            start_new_session=True,
+        )
+
+
+def run(mode):
+    binary = pathlib.Path(os.environ.get(
+        "SCREENSHOT_TOOL_BIN",
+        pathlib.Path.home() / "Documents/GitHub/ScreenshotTool/src-tauri/target/release/screenshot-tool",
+    )).expanduser()
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise RuntimeError(f"Build ScreenshotTool first; executable not found: {binary}")
+    if mode in ("editor", "clipboard"):
+        launch(binary, ["--paste" if mode == "clipboard" else "--editor"])
+        return
+    folder = pathlib.Path.home() / "Pictures/Screenshots"
+    if mode == "last":
+        images = [path for path in folder.glob("*.png") if complete_png(path)]
+        if not images:
+            raise RuntimeError(f"No screenshots found in {folder}")
+        path = max(images, key=lambda image: image.stat().st_mtime_ns)
+    else:
+        folder.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+        path = folder / f"Screenshot from {stamp}-{uuid.uuid4().hex[:8]}.png"
+        action = {"region": "screenshot", "screen": "screenshot-screen", "window": "screenshot-window"}[mode]
+        subprocess.run(["niri", "msg", "action", action, "--path", str(path)], check=True)
+        timeout = float(os.environ.get("SCREENSHOT_TOOL_CAPTURE_TIMEOUT", "120"))
+        if not wait_for_capture(path, timeout):
+            return
+    launch(binary, ["--open", str(path)])
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Capture with Niri and annotate with ScreenshotTool")
+    parser.add_argument("mode", choices=["region", "screen", "window", "last", "editor", "clipboard"])
+    args = parser.parse_args()
+    try:
+        run(args.mode)
+    except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError) as error:
+        print(f"niri-screenshot-tool: {error}", file=sys.stderr)
+        if shutil.which("notify-send"):
+            subprocess.run(["notify-send", "ScreenshotTool", str(error)], check=False)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
